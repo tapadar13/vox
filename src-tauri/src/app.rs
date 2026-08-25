@@ -65,6 +65,7 @@ struct RuntimeInner {
     last_audio: Mutex<Option<AudioClip>>,
     latency_started: Mutex<Option<Instant>>,
     cancel_epoch: AtomicU64,
+    recording_epoch: AtomicU64,
     reset_epoch: AtomicU64,
 }
 
@@ -75,7 +76,6 @@ impl VoxRuntime {
         #[cfg(feature = "whisper")]
         engines.register(Arc::new(WhisperEngine::new()))?;
 
-        let max_duration = Duration::from_secs(u64::from(settings.max_recording_seconds));
         let store = SqliteStore::open(&data_directory.join("vox.db"))?;
         let settings_store = JsonSettings::new(data_directory.join("settings.json"));
         let models = ModelManager::new(data_directory.join("models"));
@@ -86,7 +86,7 @@ impl VoxRuntime {
         Ok(Self {
             inner: Arc::new(RuntimeInner {
                 controller: Mutex::new(DictationController::default()),
-                audio: Arc::new(CpalAudioInput::new(max_duration)),
+                audio: Arc::new(CpalAudioInput::new()),
                 engines: Arc::new(engines),
                 refiner: RwLock::new(Arc::new(refiner)),
                 store,
@@ -98,6 +98,7 @@ impl VoxRuntime {
                 last_audio: Mutex::new(None),
                 latency_started: Mutex::new(None),
                 cancel_epoch: AtomicU64::new(0),
+                recording_epoch: AtomicU64::new(0),
                 reset_epoch: AtomicU64::new(0),
             }),
         })
@@ -241,26 +242,33 @@ impl VoxRuntime {
                 }
             }
             Effect::StartCapture => {
+                let epoch = self.inner.recording_epoch.fetch_add(1, Ordering::SeqCst) + 1;
                 let runtime = self.clone();
                 let capture_runtime = self.clone();
                 let event_app = app.clone();
                 let callback_app = app.clone();
                 tauri::async_runtime::spawn(async move {
+                    let max_duration = Duration::from_secs(u64::from(
+                        runtime.settings().await.max_recording_seconds,
+                    ));
                     let callback = Arc::new(move |level| {
                         capture_runtime
                             .queue_event(callback_app.clone(), DictationEvent::AudioLevel(level));
                     });
-                    if let Err(error) = runtime.inner.audio.start(callback).await {
+                    if let Err(error) = runtime.inner.audio.start(max_duration, callback).await {
                         runtime.queue_event(
                             event_app,
                             DictationEvent::OperationFailed {
                                 message: error.to_string(),
                             },
                         );
+                        return;
                     }
+                    runtime.run_recording_clock(event_app, epoch, max_duration);
                 });
             }
             Effect::StopAndTranscribe => {
+                self.inner.recording_epoch.fetch_add(1, Ordering::SeqCst);
                 let runtime = self.clone();
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
@@ -275,6 +283,7 @@ impl VoxRuntime {
                 });
             }
             Effect::DiscardCapture => {
+                self.inner.recording_epoch.fetch_add(1, Ordering::SeqCst);
                 let runtime = self.clone();
                 tauri::async_runtime::spawn(async move {
                     let _ = runtime.inner.audio.discard().await;
@@ -343,6 +352,32 @@ impl VoxRuntime {
         tauri::async_runtime::spawn(async move {
             if let Err(error) = runtime.dispatch(&app, event).await {
                 tracing::debug!(%error, "ignored stale or invalid runtime event");
+            }
+        });
+    }
+
+    fn run_recording_clock(&self, app: AppHandle, epoch: u64, max_duration: Duration) {
+        let runtime = self.clone();
+        tauri::async_runtime::spawn(async move {
+            let started = Instant::now();
+            let mut interval = tokio::time::interval(Duration::from_millis(100));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                if runtime.inner.recording_epoch.load(Ordering::SeqCst) != epoch {
+                    break;
+                }
+                let elapsed = started.elapsed();
+                if elapsed >= max_duration {
+                    runtime.queue_event(app, DictationEvent::RecordingTimedOut);
+                    break;
+                }
+                runtime.queue_event(
+                    app.clone(),
+                    DictationEvent::Elapsed {
+                        elapsed_ms: elapsed.as_millis() as u64,
+                    },
+                );
             }
         });
     }

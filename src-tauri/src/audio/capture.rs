@@ -26,14 +26,12 @@ struct ActiveCapture {
 
 pub struct CpalAudioInput {
     active: Mutex<Option<ActiveCapture>>,
-    max_duration: Duration,
 }
 
 impl CpalAudioInput {
-    pub fn new(max_duration: Duration) -> Self {
+    pub fn new() -> Self {
         Self {
             active: Mutex::new(None),
-            max_duration,
         }
     }
 
@@ -46,7 +44,11 @@ impl CpalAudioInput {
 
 #[async_trait]
 impl AudioInput for CpalAudioInput {
-    async fn start(&self, on_level: Arc<dyn Fn(f32) + Send + Sync>) -> VoxResult<()> {
+    async fn start(
+        &self,
+        max_duration: Duration,
+        on_level: Arc<dyn Fn(f32) + Send + Sync>,
+    ) -> VoxResult<()> {
         let mut active = self.lock_active()?;
         if active.is_some() {
             return Err(VoxError::Audio("capture is already running".to_owned()));
@@ -61,7 +63,7 @@ impl AudioInput for CpalAudioInput {
             .map_err(|error| VoxError::Audio(error.to_string()))?;
         let input_rate = supported.sample_rate();
         let channels = usize::from(supported.channels());
-        let capacity = (u64::from(input_rate) * self.max_duration.as_secs())
+        let capacity = (u64::from(input_rate) * max_duration.as_secs())
             .try_into()
             .unwrap_or(usize::MAX);
         let (writer, reader) = bounded(capacity);

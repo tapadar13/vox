@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::{path::Path, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -89,7 +89,11 @@ pub enum DeliveryOutcome {
 
 #[async_trait]
 pub trait AudioInput: Send + Sync {
-    async fn start(&self, on_level: Arc<dyn Fn(f32) + Send + Sync>) -> VoxResult<()>;
+    async fn start(
+        &self,
+        max_duration: Duration,
+        on_level: Arc<dyn Fn(f32) + Send + Sync>,
+    ) -> VoxResult<()>;
     async fn stop(&self) -> VoxResult<AudioClip>;
     async fn discard(&self) -> VoxResult<()>;
 }
