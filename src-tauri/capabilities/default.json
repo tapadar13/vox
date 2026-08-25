@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the Vox dashboard and dictation pill",
+  "windows": ["dashboard", "pill"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:default",
+    "global-shortcut:default",
+    "autostart:default",
+    "updater:default",
+    "opener:default"
+  ]
+}
