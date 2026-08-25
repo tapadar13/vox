@@ -1,0 +1,39 @@
+{
+  "name": "vox",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-autostart": "2.5.1",
+    "@tauri-apps/plugin-global-shortcut": "2.3.2",
+    "@tauri-apps/plugin-updater": "2.10.1",
+    "lucide-react": "1.34.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recharts": "3.10.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "2.11.4",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.1.0",
+    "jsdom": "28.0.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "4.0.18"
+  }
+}
