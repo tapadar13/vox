@@ -1,5 +1,6 @@
 use tauri_plugin_autostart::MacosLauncher;
 
+pub mod audio;
 pub mod domain;
 pub mod error;
 pub mod ports;
