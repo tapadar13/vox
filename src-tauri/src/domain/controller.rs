@@ -74,21 +74,24 @@ impl DictationController {
                     Effect::HidePill,
                 ]
             }
-            (
-                DictationPhase::CancelPending,
-                DictationEvent::CancelTick { remaining_ms },
-            ) => {
+            (DictationPhase::CancelPending, DictationEvent::CancelTick { remaining_ms }) => {
                 self.state.cancel_remaining_ms = Some(remaining_ms.min(CANCEL_COUNTDOWN_MS));
                 vec![]
             }
             (phase, DictationEvent::AudioLevel(level))
-                if matches!(phase, DictationPhase::Recording | DictationPhase::CancelPending) =>
+                if matches!(
+                    phase,
+                    DictationPhase::Recording | DictationPhase::CancelPending
+                ) =>
             {
                 self.state.audio_level = level.clamp(0.0, 1.0);
                 vec![]
             }
             (phase, DictationEvent::Elapsed { elapsed_ms })
-                if matches!(phase, DictationPhase::Recording | DictationPhase::CancelPending) =>
+                if matches!(
+                    phase,
+                    DictationPhase::Recording | DictationPhase::CancelPending
+                ) =>
             {
                 self.state.elapsed_ms = elapsed_ms;
                 vec![]
@@ -113,10 +116,7 @@ impl DictationController {
                     engine_id,
                 }]
             }
-            (
-                DictationPhase::Transcribing,
-                DictationEvent::TranscriptionFailed { message },
-            ) => {
+            (DictationPhase::Transcribing, DictationEvent::TranscriptionFailed { message }) => {
                 self.state.phase = DictationPhase::Error;
                 self.state.message = Some(message);
                 vec![]
@@ -126,9 +126,7 @@ impl DictationController {
                 self.state.delivery_mode = Some(mode);
                 self.state.message = match mode {
                     super::DeliveryMode::Pasted => Some("Pasted".to_owned()),
-                    super::DeliveryMode::Clipboard => {
-                        Some("Copied — press ⌘V to paste".to_owned())
-                    }
+                    super::DeliveryMode::Clipboard => Some("Copied — press ⌘V to paste".to_owned()),
                     super::DeliveryMode::Failed => {
                         Some("Saved to history — delivery failed".to_owned())
                     }

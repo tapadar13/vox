@@ -6,11 +6,15 @@ use super::DeliveryMode;
 pub enum DictationEvent {
     Toggle,
     CancelRequested,
-    CancelTick { remaining_ms: u64 },
+    CancelTick {
+        remaining_ms: u64,
+    },
     CancelExpired,
     RecordingTimedOut,
     AudioLevel(f32),
-    Elapsed { elapsed_ms: u64 },
+    Elapsed {
+        elapsed_ms: u64,
+    },
     TranscriptionReady {
         raw_text: String,
         text: String,
@@ -18,8 +22,12 @@ pub enum DictationEvent {
         duration_ms: u64,
         engine_id: String,
     },
-    TranscriptionFailed { message: String },
-    DeliveryFinished { mode: DeliveryMode },
+    TranscriptionFailed {
+        message: String,
+    },
+    DeliveryFinished {
+        mode: DeliveryMode,
+    },
     Retry,
     Reset,
 }
@@ -34,7 +42,9 @@ pub enum Effect {
     DiscardCapture,
     RegisterEscape,
     UnregisterEscape,
-    ScheduleCancel { after_ms: u64 },
+    ScheduleCancel {
+        after_ms: u64,
+    },
     CancelScheduledCancel,
     DeliverTranscript {
         raw_text: String,
@@ -44,5 +54,7 @@ pub enum Effect {
         engine_id: String,
     },
     RetryTranscription,
-    ScheduleReset { after_ms: u64 },
+    ScheduleReset {
+        after_ms: u64,
+    },
 }

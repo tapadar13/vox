@@ -1,8 +1,8 @@
 use tauri_plugin_autostart::MacosLauncher;
 
+pub mod domain;
 pub mod error;
 pub mod ports;
-pub mod domain;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

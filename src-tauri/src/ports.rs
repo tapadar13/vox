@@ -98,8 +98,7 @@ pub trait SttEngine: Send + Sync {
     fn id(&self) -> EngineId;
     fn capabilities(&self) -> EngineCaps;
     async fn load(&self, model_path: &Path) -> VoxResult<()>;
-    async fn transcribe(&self, audio: AudioClip, language: LanguageHint)
-        -> VoxResult<Transcript>;
+    async fn transcribe(&self, audio: AudioClip, language: LanguageHint) -> VoxResult<Transcript>;
 }
 
 #[async_trait]
