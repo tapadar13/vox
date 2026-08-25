@@ -9,7 +9,7 @@ export function useVoxState() {
 
   useEffect(() => {
     let mounted = true;
-    let unlisten = () => undefined;
+    let unlisten: () => void = () => undefined;
     void vox
       .state()
       .then((next) => mounted && setState(next))
@@ -32,7 +32,7 @@ export function useHistoryVersion() {
 
   useEffect(() => {
     let mounted = true;
-    let unlisten = () => undefined;
+    let unlisten: () => void = () => undefined;
     void onHistoryChanged(() => mounted && setVersion((value) => value + 1)).then((stop) => {
       if (mounted) unlisten = stop;
       else stop();
