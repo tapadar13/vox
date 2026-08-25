@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  color: rgba(255, 255, 255, 0.94);
+  background: transparent;
+  font-family:
+    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --vox-bg: #080b12;
+  --vox-surface: rgba(20, 24, 34, 0.72);
+  --vox-border: rgba(255, 255, 255, 0.1);
+  --vox-accent: #9b8cff;
+  --vox-accent-strong: #7c67ff;
+  --vox-success: #55d6a9;
+  --vox-danger: #ff718d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  background: transparent;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  -webkit-app-region: no-drag;
+}
+
+::selection {
+  color: white;
+  background: rgba(124, 103, 255, 0.45);
+}
