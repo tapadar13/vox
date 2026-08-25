@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::error::VoxResult;
+use crate::{error::VoxResult, settings::Settings};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioClip {
@@ -117,4 +117,10 @@ pub trait TranscriptStore: Send + Sync {
 #[async_trait]
 pub trait TextDelivery: Send + Sync {
     async fn deliver(&self, text: &str, auto_paste: bool) -> VoxResult<DeliveryOutcome>;
+}
+
+#[async_trait]
+pub trait SettingsStore: Send + Sync {
+    async fn load(&self) -> VoxResult<Settings>;
+    async fn save(&self, settings: &Settings) -> VoxResult<()>;
 }
