@@ -121,6 +121,19 @@ impl DictationController {
                 self.state.message = Some(message);
                 vec![]
             }
+            (phase, DictationEvent::OperationFailed { message })
+                if phase != DictationPhase::Idle =>
+            {
+                self.state.phase = DictationPhase::Error;
+                self.state.message = Some(message);
+                self.state.audio_level = 0.0;
+                self.state.cancel_remaining_ms = None;
+                vec![
+                    Effect::CancelScheduledCancel,
+                    Effect::UnregisterEscape,
+                    Effect::DiscardCapture,
+                ]
+            }
             (DictationPhase::Delivering, DictationEvent::DeliveryFinished { mode }) => {
                 self.state.phase = DictationPhase::Success;
                 self.state.delivery_mode = Some(mode);
@@ -276,5 +289,22 @@ mod tests {
             .dispatch(DictationEvent::CancelRequested)
             .unwrap_err();
         assert!(matches!(error, VoxError::InvalidTransition(_)));
+    }
+
+    #[test]
+    fn adapter_failures_enter_a_recoverable_error_state() {
+        let mut controller = controller();
+        controller.dispatch(DictationEvent::Toggle).unwrap();
+        let transition = controller
+            .dispatch(DictationEvent::OperationFailed {
+                message: "Microphone permission denied".to_owned(),
+            })
+            .unwrap();
+        assert_eq!(transition.state.phase, DictationPhase::Error);
+        assert_eq!(
+            transition.state.message.as_deref(),
+            Some("Microphone permission denied")
+        );
+        assert!(transition.effects.contains(&Effect::DiscardCapture));
     }
 }

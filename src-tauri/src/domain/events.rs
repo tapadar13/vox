@@ -25,6 +25,9 @@ pub enum DictationEvent {
     TranscriptionFailed {
         message: String,
     },
+    OperationFailed {
+        message: String,
+    },
     DeliveryFinished {
         mode: DeliveryMode,
     },
