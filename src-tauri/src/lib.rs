@@ -6,6 +6,7 @@ pub mod error;
 pub mod ports;
 pub mod settings;
 pub mod store;
+pub mod stt;
 pub mod text;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
