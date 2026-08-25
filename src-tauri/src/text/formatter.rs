@@ -137,8 +137,9 @@ fn trim_fillers(input: &str) -> String {
 fn capitalize_sentences(input: &str) -> String {
     let mut output = String::with_capacity(input.len());
     let mut capitalize_next = true;
+    let characters: Vec<char> = input.chars().collect();
 
-    for character in input.chars() {
+    for (index, character) in characters.iter().copied().enumerate() {
         if capitalize_next && character.is_alphabetic() {
             output.extend(character.to_uppercase());
             capitalize_next = false;
@@ -146,7 +147,13 @@ fn capitalize_sentences(input: &str) -> String {
             output.push(character);
         }
 
-        if matches!(character, '.' | '!' | '?') {
+        let decimal_point = character == '.'
+            && index > 0
+            && characters[index - 1].is_numeric()
+            && characters
+                .get(index + 1)
+                .is_some_and(|value| value.is_numeric());
+        if matches!(character, '.' | '!' | '?') && !decimal_point {
             capitalize_next = true;
         }
     }
