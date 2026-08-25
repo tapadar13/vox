@@ -1,8 +1,10 @@
 use tauri_plugin_autostart::MacosLauncher;
 
 pub mod audio;
+pub mod delivery;
 pub mod domain;
 pub mod error;
+pub mod hotkeys;
 pub mod models_mgr;
 pub mod ports;
 pub mod settings;
