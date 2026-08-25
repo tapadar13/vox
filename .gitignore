@@ -1,0 +1,27 @@
+# Dependencies and build outputs
+node_modules/
+dist/
+src-tauri/target/
+
+# Local configuration and editor state
+.DS_Store
+.claude/
+.idea/
+.vscode/
+*.local
+
+# Local Vox runtime data
+models/
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Tauri signing material must never be committed
+*.key
+*.key.pub
+
+# Test and coverage output
+coverage/
+playwright-report/
+test-results/
