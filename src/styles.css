@@ -25,9 +25,14 @@
 html,
 body,
 #root {
+  width: 100%;
   min-height: 100%;
   margin: 0;
   background: transparent;
+}
+
+body {
+  overflow: hidden;
 }
 
 button,
@@ -43,6 +48,32 @@ button {
 ::selection {
   color: white;
   background: rgba(124, 103, 255, 0.45);
+}
+
+.vox-dashboard {
+  background:
+    radial-gradient(circle at 88% 6%, rgba(124, 103, 255, 0.13), transparent 31%),
+    radial-gradient(circle at 36% 110%, rgba(54, 179, 153, 0.055), transparent 35%),
+    linear-gradient(145deg, #0d1019, #080a10 72%);
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  user-select: none;
 }
 
 .vox-pill {
