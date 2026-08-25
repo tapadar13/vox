@@ -1,0 +1,45 @@
+use tauri::{App, Manager, Wry, menu::MenuBuilder, tray::TrayIconBuilder};
+
+use crate::{app::VoxRuntime, domain::DictationEvent};
+
+pub fn create_tray(app: &App<Wry>) -> tauri::Result<()> {
+    let menu = MenuBuilder::new(app)
+        .text("dictate", "Start Dictation")
+        .text("dashboard", "Open Vox")
+        .separator()
+        .text("quit", "Quit Vox")
+        .build()?;
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".to_owned()))?;
+
+    TrayIconBuilder::<Wry>::with_id("vox")
+        .icon(icon)
+        .tooltip("Vox — local voice-to-text")
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "dictate" => {
+                let runtime = app.state::<VoxRuntime>().inner().clone();
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = runtime.dispatch(&app, DictationEvent::Toggle).await {
+                        tracing::error!(%error, "tray dictation action failed");
+                    }
+                });
+            }
+            "dashboard" => show_dashboard(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .build(app)?;
+    Ok(())
+}
+
+fn show_dashboard(app: &tauri::AppHandle<Wry>) {
+    if let Some(window) = app.get_webview_window("dashboard") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
