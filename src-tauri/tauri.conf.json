@@ -23,7 +23,12 @@
         "center": true,
         "transparent": true,
         "decorations": false,
-        "shadow": true
+        "shadow": true,
+        "windowEffects": {
+          "effects": ["hudWindow"],
+          "state": "active",
+          "radius": 20
+        }
       },
       {
         "label": "pill",
@@ -38,7 +43,12 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "focus": false,
-        "shadow": false
+        "shadow": false,
+        "windowEffects": {
+          "effects": ["hudWindow"],
+          "state": "active",
+          "radius": 32
+        }
       }
     ],
     "security": {
