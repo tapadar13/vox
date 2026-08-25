@@ -44,3 +44,58 @@ button {
   color: white;
   background: rgba(124, 103, 255, 0.45);
 }
+
+.vox-pill {
+  background:
+    radial-gradient(circle at 20% -30%, rgba(145, 125, 255, 0.2), transparent 44%),
+    linear-gradient(145deg, rgba(20, 22, 33, 0.9), rgba(9, 11, 17, 0.86));
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  backdrop-filter: blur(28px) saturate(1.4);
+}
+
+.vox-pill[data-phase="recording"] {
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.48),
+    0 0 40px rgba(124, 103, 255, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.vox-countdown-ring {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: vox-countdown 3s linear forwards;
+}
+
+.vox-shimmer-text {
+  color: transparent;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.42), white, rgba(255, 255, 255, 0.42));
+  background-size: 220% 100%;
+  background-clip: text;
+  animation: vox-shimmer 1.15s linear infinite;
+}
+
+@keyframes vox-countdown {
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+
+@keyframes vox-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
