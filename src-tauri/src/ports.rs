@@ -1,9 +1,10 @@
 use std::{path::Path, sync::Arc};
 
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::VoxResult, settings::Settings};
+use crate::{domain::StatsSnapshot, error::VoxResult, settings::Settings};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioClip {
@@ -123,4 +124,9 @@ pub trait TextDelivery: Send + Sync {
 pub trait SettingsStore: Send + Sync {
     async fn load(&self) -> VoxResult<Settings>;
     async fn save(&self, settings: &Settings) -> VoxResult<()>;
+}
+
+#[async_trait]
+pub trait StatsStore: Send + Sync {
+    async fn stats(&self, typing_wpm: u32, today: NaiveDate) -> VoxResult<StatsSnapshot>;
 }
