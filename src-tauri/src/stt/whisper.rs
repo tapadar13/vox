@@ -19,6 +19,7 @@ use crate::{
 #[derive(Default)]
 pub struct WhisperEngine {
     context: RwLock<Option<Arc<WhisperContext>>>,
+    inference: tokio::sync::Mutex<()>,
 }
 
 impl WhisperEngine {
@@ -57,6 +58,7 @@ impl SttEngine for WhisperEngine {
     }
 
     async fn load(&self, model_path: &Path) -> VoxResult<()> {
+        let _inference = self.inference.lock().await;
         if !model_path.is_file() {
             return Err(VoxError::Model(format!(
                 "Whisper model was not found at {}",
@@ -83,6 +85,7 @@ impl SttEngine for WhisperEngine {
     }
 
     async fn transcribe(&self, audio: AudioClip, language: LanguageHint) -> VoxResult<Transcript> {
+        let _inference = self.inference.lock().await;
         if audio.sample_rate != TRANSCRIPTION_SAMPLE_RATE {
             return Err(VoxError::Stt(format!(
                 "Whisper requires {TRANSCRIPTION_SAMPLE_RATE} Hz audio"
