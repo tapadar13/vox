@@ -124,9 +124,7 @@ button {
 }
 
 .vox-pill {
-  background:
-    radial-gradient(circle at 20% -30%, rgba(145, 125, 255, 0.2), transparent 44%),
-    linear-gradient(145deg, rgba(20, 22, 33, 0.9), rgba(9, 11, 17, 0.86));
+  background: rgba(15, 17, 23, 0.9);
   -webkit-backdrop-filter: blur(28px) saturate(1.4);
   backdrop-filter: blur(28px) saturate(1.4);
 }
@@ -136,6 +134,10 @@ button {
     0 22px 70px rgba(0, 0, 0, 0.48),
     0 0 40px rgba(124, 103, 255, 0.09),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.vox-pill-progress {
+  animation: vox-pill-progress 1.15s ease-in-out infinite alternate;
 }
 
 .vox-countdown-ring {
@@ -164,6 +166,15 @@ button {
   }
   to {
     background-position: -120% 0;
+  }
+}
+
+@keyframes vox-pill-progress {
+  from {
+    transform: translateX(-45%);
+  }
+  to {
+    transform: translateX(145%);
   }
 }
 
