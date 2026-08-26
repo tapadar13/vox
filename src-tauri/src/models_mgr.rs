@@ -112,7 +112,7 @@ impl ModelManager {
         if !path.is_file() {
             return Ok(false);
         }
-        Ok(verify_checksum(path, spec.sha256).await?)
+        verify_checksum(path, spec.sha256).await
     }
 
     pub async fn download(
