@@ -78,21 +78,17 @@ impl DictationController {
                 self.state.cancel_remaining_ms = Some(remaining_ms.min(CANCEL_COUNTDOWN_MS));
                 vec![]
             }
-            (phase, DictationEvent::AudioLevel(level))
-                if matches!(
-                    phase,
-                    DictationPhase::Recording | DictationPhase::CancelPending
-                ) =>
-            {
+            (
+                DictationPhase::Recording | DictationPhase::CancelPending,
+                DictationEvent::AudioLevel(level),
+            ) => {
                 self.state.audio_level = level.clamp(0.0, 1.0);
                 vec![]
             }
-            (phase, DictationEvent::Elapsed { elapsed_ms })
-                if matches!(
-                    phase,
-                    DictationPhase::Recording | DictationPhase::CancelPending
-                ) =>
-            {
+            (
+                DictationPhase::Recording | DictationPhase::CancelPending,
+                DictationEvent::Elapsed { elapsed_ms },
+            ) => {
                 self.state.elapsed_ms = elapsed_ms;
                 vec![]
             }
