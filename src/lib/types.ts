@@ -109,7 +109,7 @@ export const idleState: AppState = {
 
 export const defaultSettings: Settings = {
   schemaVersion: 1,
-  hotkey: "CommandOrControl+Shift+Space",
+  hotkey: "Alt+Space",
   language: { mode: "auto" },
   engineId: "whisper-turbo",
   modelId: "whisper-large-v3-turbo-q5_0",

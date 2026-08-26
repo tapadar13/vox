@@ -30,7 +30,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             schema_version: SETTINGS_SCHEMA_VERSION,
-            hotkey: "CommandOrControl+Shift+Space".to_owned(),
+            hotkey: "Alt+Space".to_owned(),
             language: LanguageHint::Auto,
             engine_id: "whisper-turbo".to_owned(),
             model_id: "whisper-large-v3-turbo-q5_0".to_owned(),
