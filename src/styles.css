@@ -17,6 +17,24 @@
   --vox-accent-strong: #7c67ff;
   --vox-success: #55d6a9;
   --vox-danger: #ff718d;
+  --vox-paper-text: #11131a;
+  --vox-paper-body: #343843;
+  --vox-paper-muted: #7a8190;
+  --vox-paper-faint: #9a9fab;
+  --vox-paper-line: rgba(52, 58, 72, 0.06);
+  --vox-paper-glass: rgba(255, 255, 255, 0.62);
+  --vox-paper-gradient: linear-gradient(
+    90deg,
+    oklab(0.708 0.16 0.092) 0%,
+    oklab(0.686 0.218 0.012) 54%,
+    oklab(0.606 0.085 -0.202) 100%
+  );
+  --vox-paper-background: linear-gradient(
+    145deg,
+    oklab(0.916 -0.003 -0.015) 0%,
+    oklab(0.979 0.0001 -0.004) 50%,
+    oklab(0.921 0.014 -0.021) 100%
+  );
 }
 
 * {
@@ -56,6 +74,34 @@ button {
     radial-gradient(circle at 88% 6%, rgba(124, 103, 255, 0.13), transparent 31%),
     radial-gradient(circle at 36% 110%, rgba(54, 179, 153, 0.055), transparent 35%),
     linear-gradient(145deg, #0d1019, #080a10 72%);
+}
+
+.vox-paper-background {
+  color: var(--vox-paper-text);
+  background: var(--vox-paper-background);
+}
+
+.vox-paper-window {
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 30px 70px rgba(46, 52, 72, 0.22);
+}
+
+.vox-paper-panel {
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.88);
+}
+
+.vox-paper-gradient {
+  background: var(--vox-paper-gradient);
+}
+
+.vox-paper-gradient-text {
+  color: transparent;
+  background: var(--vox-paper-gradient);
+  background-clip: text;
 }
 
 ::-webkit-scrollbar {
