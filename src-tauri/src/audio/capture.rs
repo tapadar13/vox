@@ -42,6 +42,12 @@ impl CpalAudioInput {
     }
 }
 
+impl Default for CpalAudioInput {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl AudioInput for CpalAudioInput {
     async fn start(
@@ -67,7 +73,7 @@ impl AudioInput for CpalAudioInput {
             .try_into()
             .unwrap_or(usize::MAX);
         let (writer, reader) = bounded(capacity);
-        let config: StreamConfig = supported.clone().into();
+        let config: StreamConfig = supported.into();
 
         let stream = match supported.sample_format() {
             SampleFormat::I8 => build_stream::<i8>(&device, &config, channels, writer, on_level),
@@ -137,7 +143,7 @@ where
     let mut last_level = Instant::now() - Duration::from_millis(34);
     device
         .build_input_stream(
-            config.clone(),
+            *config,
             move |data: &[T], _| {
                 let mut peak = 0.0_f32;
                 for frame in data.chunks(channels) {
