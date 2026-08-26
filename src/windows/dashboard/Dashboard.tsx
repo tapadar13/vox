@@ -15,11 +15,13 @@ const Settings = lazy(() =>
 const Stats = lazy(() => import("./Stats").then(({ Stats: component }) => ({ default: component })));
 
 export function Dashboard() {
-  const [page, setPage] = useState<DashboardPage>("home");
-  const [settings, setSettings] = useState<VoxSettings>(defaultSettings);
-  const [loaded, setLoaded] = useState(false);
+  const preview = getDashboardPreview();
+  const [page, setPage] = useState<DashboardPage>(preview.page);
+  const [settings, setSettings] = useState<VoxSettings>(preview.settings);
+  const [loaded, setLoaded] = useState(preview.enabled);
 
   useEffect(() => {
+    if (preview.enabled) return;
     let mounted = true;
     void vox
       .settings()
@@ -28,7 +30,7 @@ export function Dashboard() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [preview.enabled]);
 
   useEffect(() => {
     if (loaded) void resizeVoxWindow(settings.onboardingComplete ? 720 : 413, settings.onboardingComplete ? 480 : 520);
@@ -76,4 +78,19 @@ export function Dashboard() {
       </Suspense>
     </DashboardShell>
   );
+}
+
+function getDashboardPreview(): { enabled: boolean; page: DashboardPage; settings: VoxSettings } {
+  if (!import.meta.env.DEV) return { enabled: false, page: "home", settings: defaultSettings };
+
+  const params = new URLSearchParams(window.location.search);
+  const enabled = params.get("preview") === "dashboard";
+  const requestedPage = params.get("page");
+  const page: DashboardPage = requestedPage === "history" || requestedPage === "settings" ? requestedPage : "home";
+
+  return {
+    enabled,
+    page,
+    settings: enabled ? { ...defaultSettings, onboardingComplete: true } : defaultSettings,
+  };
 }
