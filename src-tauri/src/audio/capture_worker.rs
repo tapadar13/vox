@@ -110,6 +110,12 @@ impl CaptureWorker {
     }
 }
 
+impl Drop for CaptureWorker {
+    fn drop(&mut self) {
+        let _ = self.stop_and_join();
+    }
+}
+
 fn store_error(target: &Mutex<Option<String>>, error: VoxError) {
     if let Ok(mut slot) = target.lock() {
         *slot = Some(error.to_string());
