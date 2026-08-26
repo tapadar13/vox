@@ -33,6 +33,8 @@ use crate::{
     text::{FormatterConfig, RuleTextRefiner},
 };
 
+#[cfg(feature = "parakeet")]
+use crate::stt::ParakeetEngine;
 #[cfg(feature = "whisper")]
 use crate::stt::WhisperEngine;
 
@@ -80,6 +82,8 @@ impl VoxRuntime {
         let mut engines = EngineRegistry::default();
         #[cfg(feature = "whisper")]
         engines.register(Arc::new(WhisperEngine::new()))?;
+        #[cfg(feature = "parakeet")]
+        engines.register(Arc::new(ParakeetEngine::new()))?;
 
         let store = SqliteStore::open(&data_directory.join("vox.db"))?;
         let settings_store = JsonSettings::new(data_directory.join("settings.json"));
