@@ -14,6 +14,8 @@ export interface AppState {
   elapsedMs: number;
   cancelRemainingMs: number | null;
   audioLevel: number;
+  partialTranscript: string | null;
+  stableWords: number;
   message: string | null;
   lastTranscript: string | null;
   deliveryMode: DeliveryMode | null;
@@ -96,6 +98,8 @@ export const idleState: AppState = {
   elapsedMs: 0,
   cancelRemainingMs: null,
   audioLevel: 0,
+  partialTranscript: null,
+  stableWords: 0,
   message: null,
   lastTranscript: null,
   deliveryMode: null,
