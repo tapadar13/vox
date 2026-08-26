@@ -22,6 +22,7 @@ pub struct IncrementalTranscript {
     config: IncrementalConfig,
     stable_text: String,
     provisional_text: String,
+    committed_until_ms: u64,
     processed_until_ms: u64,
     language_votes: HashMap<String, usize>,
 }
@@ -32,6 +33,7 @@ impl IncrementalTranscript {
             config,
             stable_text: String::new(),
             provisional_text: String::new(),
+            committed_until_ms: 0,
             processed_until_ms: 0,
             language_votes: HashMap::new(),
         }
@@ -45,12 +47,14 @@ impl IncrementalTranscript {
             .saturating_sub(self.config.overlap_ms());
         for segment in &chunk.segments {
             let global_end_ms = chunk_start_ms.saturating_add(segment.end_ms);
-            if global_end_ms <= commit_before_ms && global_end_ms > self.processed_until_ms {
+            if global_end_ms <= commit_before_ms && global_end_ms > self.committed_until_ms {
                 self.stable_text = merge_text(&self.stable_text, &segment.text);
+                self.committed_until_ms = self.committed_until_ms.max(global_end_ms);
             }
         }
         if chunk.segments.is_empty() {
             self.stable_text = merge_text(&self.stable_text, &chunk.text);
+            self.committed_until_ms = self.committed_until_ms.max(commit_before_ms);
         }
         self.provisional_text = chunk.text.trim().to_owned();
         self.processed_until_ms = self.processed_until_ms.max(commit_before_ms);
@@ -66,8 +70,9 @@ impl IncrementalTranscript {
         } else {
             for segment in &chunk.segments {
                 let global_end_ms = chunk_start_ms.saturating_add(segment.end_ms);
-                if global_end_ms > self.processed_until_ms {
+                if global_end_ms > self.committed_until_ms {
                     self.stable_text = merge_text(&self.stable_text, &segment.text);
+                    self.committed_until_ms = self.committed_until_ms.max(global_end_ms);
                 }
             }
         }
@@ -190,5 +195,38 @@ mod tests {
             segments: vec![],
         });
         assert_eq!(transcript.final_tail_start_ms(), 4_500);
+    }
+
+    #[test]
+    fn final_pass_keeps_a_segment_crossing_the_stability_boundary() {
+        let mut transcript = IncrementalTranscript::new(IncrementalConfig::default());
+        transcript.ingest(ChunkTranscript {
+            range: range(0, 4_500),
+            text: "first crossing words".to_owned(),
+            language: "en".to_owned(),
+            segments: vec![
+                TimedText {
+                    text: "first".to_owned(),
+                    start_ms: 0,
+                    end_ms: 2_000,
+                },
+                TimedText {
+                    text: "crossing words".to_owned(),
+                    start_ms: 2_000,
+                    end_ms: 4_000,
+                },
+            ],
+        });
+        let final_text = transcript.finish(ChunkTranscript {
+            range: range(1_500, 5_000),
+            text: "crossing words remain".to_owned(),
+            language: "en".to_owned(),
+            segments: vec![TimedText {
+                text: "crossing words remain".to_owned(),
+                start_ms: 500,
+                end_ms: 3_500,
+            }],
+        });
+        assert_eq!(final_text, "first crossing words remain");
     }
 }
