@@ -1,3 +1,4 @@
+pub mod incremental;
 pub mod registry;
 
 #[cfg(feature = "whisper")]
