@@ -5,6 +5,7 @@ import { useVoxState } from "../../lib/hooks";
 import { vox } from "../../lib/tauri";
 import { Button } from "../../ui/Button";
 import { CountdownRing } from "./CountdownRing";
+import { LiveTranscript } from "./LiveTranscript";
 import { Waveform } from "./Waveform";
 
 export function Pill() {
@@ -23,7 +24,14 @@ export function Pill() {
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-400/12 text-rose-300">
               <Mic className="size-4" />
             </span>
-            <Waveform level={state.audioLevel} />
+            <div className="min-w-0 flex-1">
+              <Waveform className="w-full" level={state.audioLevel} />
+              {state.partialTranscript ? (
+                <LiveTranscript text={state.partialTranscript} stableWords={state.stableWords} />
+              ) : (
+                <p className="truncate text-[10px] leading-4 text-white/24">Listening locally…</p>
+              )}
+            </div>
             <span className="ml-auto min-w-11 font-mono text-[11px] tabular-nums text-white/42">
               {formatDuration(state.elapsedMs)}
             </span>
