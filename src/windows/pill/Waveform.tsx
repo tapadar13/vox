@@ -3,11 +3,12 @@ import { useEffect, useRef } from "react";
 interface WaveformProps {
   level: number;
   processing?: boolean;
+  className?: string;
 }
 
 const BAR_COUNT = 25;
 
-export function Waveform({ level, processing = false }: WaveformProps) {
+export function Waveform({ level, processing = false, className = "w-36" }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const levels = useRef(Array.from({ length: BAR_COUNT }, () => 0.08));
   const target = useRef(level);
@@ -70,5 +71,5 @@ export function Waveform({ level, processing = false }: WaveformProps) {
     return () => cancelAnimationFrame(animation);
   }, [processing]);
 
-  return <canvas ref={canvasRef} className="h-8 w-36" aria-label="Live microphone level" />;
+  return <canvas ref={canvasRef} className={`h-8 ${className}`} aria-label="Live microphone level" />;
 }
