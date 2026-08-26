@@ -40,12 +40,16 @@ impl SampleWriter {
 }
 
 impl SampleReader {
-    pub fn drain(mut self) -> Vec<f32> {
+    pub fn drain_available(&mut self) -> Vec<f32> {
         let mut samples = Vec::with_capacity(self.consumer.occupied_len());
         while let Some(sample) = self.consumer.try_pop() {
             samples.push(sample);
         }
         samples
+    }
+
+    pub fn drain(mut self) -> Vec<f32> {
+        self.drain_available()
     }
 
     pub fn dropped_samples(&self) -> u64 {
@@ -66,5 +70,16 @@ mod tests {
 
         assert_eq!(reader.dropped_samples(), 1);
         assert_eq!(reader.drain(), vec![0.1, 0.2]);
+    }
+
+    #[test]
+    fn can_drain_repeatedly_for_a_live_consumer() {
+        let (mut writer, mut reader) = bounded(4);
+        writer.push(0.1);
+        writer.push(0.2);
+        assert_eq!(reader.drain_available(), vec![0.1, 0.2]);
+        assert!(reader.drain_available().is_empty());
+        writer.push(0.3);
+        assert_eq!(reader.drain_available(), vec![0.3]);
     }
 }
