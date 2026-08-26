@@ -498,6 +498,7 @@ impl VoxRuntime {
     }
 
     async fn transcribe_capture(&self, app: AppHandle, retry: bool) {
+        *self.inner.latency_started.lock().await = Some(Instant::now());
         let audio = if retry {
             self.inner.last_audio.lock().await.clone()
         } else {
@@ -527,7 +528,6 @@ impl VoxRuntime {
             );
             return;
         };
-        *self.inner.latency_started.lock().await = Some(Instant::now());
         let settings = self.settings().await;
         let engine = match self.inner.engines.get(&settings.engine_id) {
             Ok(engine) => engine,
