@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 
-import { vox } from "../../lib/tauri";
+import { onDashboardNavigation, vox } from "../../lib/tauri";
 import { defaultSettings, type Settings as VoxSettings } from "../../lib/types";
 import { resizeVoxWindow } from "../../lib/window";
 import { DashboardShell, type DashboardPage } from "./DashboardShell";
@@ -33,6 +33,27 @@ export function Dashboard() {
   useEffect(() => {
     if (loaded) void resizeVoxWindow(settings.onboardingComplete ? 720 : 413, settings.onboardingComplete ? 480 : 520);
   }, [loaded, settings.onboardingComplete]);
+
+  useEffect(() => {
+    let mounted = true;
+    let unlisten: () => void = () => undefined;
+    void onDashboardNavigation((next) => mounted && setPage(next)).then((stop) => {
+      if (mounted) unlisten = stop;
+      else stop();
+    });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey && event.key === ",") {
+        event.preventDefault();
+        setPage("settings");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      mounted = false;
+      unlisten();
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   if (!loaded) {
     return <main className="vox-paper-background min-h-screen" />;

@@ -1,21 +1,20 @@
-use tauri::{App, Manager, Wry, menu::MenuBuilder, tray::TrayIconBuilder};
+use tauri::{App, Emitter, Manager, Wry, menu::MenuBuilder, tray::TrayIconBuilder};
 
 use crate::{app::VoxRuntime, domain::DictationEvent};
 
 pub fn create_tray(app: &App<Wry>) -> tauri::Result<()> {
     let menu = MenuBuilder::new(app)
-        .text("dictate", "Start Dictation")
+        .text("dictate", "Start dictating")
         .text("dashboard", "Open Vox")
         .separator()
+        .text("settings", "Settings")
         .text("quit", "Quit Vox")
         .build()?;
-    let icon = app
-        .default_window_icon()
-        .cloned()
-        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".to_owned()))?;
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
 
     TrayIconBuilder::<Wry>::with_id("vox")
         .icon(icon)
+        .icon_as_template(true)
         .tooltip("Vox — local voice-to-text")
         .menu(&menu)
         .show_menu_on_left_click(true)
@@ -30,6 +29,10 @@ pub fn create_tray(app: &App<Wry>) -> tauri::Result<()> {
                 });
             }
             "dashboard" => show_dashboard(app),
+            "settings" => {
+                show_dashboard(app);
+                let _ = app.emit("vox://navigate", "settings");
+            }
             "quit" => app.exit(0),
             _ => {}
         })

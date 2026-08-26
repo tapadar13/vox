@@ -64,3 +64,8 @@ export function onModelProgress(
   if (!isTauri()) return Promise.resolve(() => undefined);
   return listen<ModelDownloadProgress>("vox://model-progress", ({ payload }) => handler(payload));
 }
+
+export function onDashboardNavigation(handler: (page: "home" | "history" | "settings") => void): Promise<UnlistenFn> {
+  if (!isTauri()) return Promise.resolve(() => undefined);
+  return listen<"home" | "history" | "settings">("vox://navigate", ({ payload }) => handler(payload));
+}
