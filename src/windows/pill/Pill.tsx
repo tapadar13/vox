@@ -1,12 +1,14 @@
 import { useVoxState } from "../../lib/hooks";
 import { vox } from "../../lib/tauri";
+import type { AppState } from "../../lib/types";
 import { CountdownRing } from "./CountdownRing";
 import { Waveform } from "./Waveform";
 
 const pillBase = "vox-pill flex h-12 shrink-0 items-center rounded-full border border-white/10 bg-[#0f1117e6] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_12px_28px_rgba(16,18,24,.18)]";
 
 export function Pill() {
-  const { state } = useVoxState();
+  const live = useVoxState();
+  const state = getPillPreview() ?? live.state;
 
   return (
     <main className="flex h-screen w-screen items-center justify-center overflow-hidden" aria-live="polite">
@@ -74,6 +76,29 @@ export function Pill() {
 function formatRecordingTime(milliseconds: number): string {
   const seconds = Math.floor(Math.max(0, milliseconds) / 1_000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function getPillPreview(): AppState | null {
+  if (!import.meta.env.DEV) return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const requestedPhase = params.get("phase");
+  const phases: AppState["phase"][] = ["idle", "recording", "transcribing", "delivering", "cancelPending", "success", "error"];
+  if (!requestedPhase || !phases.includes(requestedPhase as AppState["phase"])) return null;
+
+  return {
+    phase: requestedPhase as AppState["phase"],
+    elapsedMs: Number(params.get("elapsed")) || 7_000,
+    cancelRemainingMs: requestedPhase === "cancelPending" ? 1_400 : null,
+    audioLevel: Number(params.get("level")) || 0.72,
+    partialTranscript: params.get("partial") ?? "Vox transcribes while you speak",
+    stableWords: 5,
+    message: requestedPhase === "error" ? "Couldn't transcribe" : null,
+    lastTranscript: null,
+    deliveryMode: params.get("delivery") === "clipboard" ? "clipboard" : "pasted",
+    activeEngine: "whisper-turbo",
+    modelReady: true,
+  };
 }
 
 function CheckIcon() { return <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="m3 7.2 2.5 2.4L11 4.3" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
