@@ -8,6 +8,7 @@ import { GlassPanel } from "../../ui/GlassPanel";
 import { Toggle } from "../../ui/Toggle";
 import { HotkeyRecorder } from "./HotkeyRecorder";
 import { ModelManager } from "./ModelManager";
+import { UpdateCard } from "./UpdateCard";
 
 interface SettingsProps {
   value: VoxSettings;
@@ -175,6 +176,9 @@ export function Settings({ value, onSaved }: SettingsProps) {
               />
               WPM
             </label>
+          </div>
+          <div className="border-t border-white/[.055]">
+            <UpdateCard />
           </div>
         </GlassPanel>
       </div>
