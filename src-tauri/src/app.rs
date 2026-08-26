@@ -26,7 +26,10 @@ use crate::{
     },
     settings::{JsonSettings, Settings},
     store::SqliteStore,
-    stt::EngineRegistry,
+    stt::{
+        EngineRegistry,
+        incremental::{IncrementalConfig, IncrementalSession},
+    },
     text::{FormatterConfig, RuleTextRefiner},
 };
 
@@ -62,6 +65,8 @@ struct RuntimeInner {
     settings_store: JsonSettings,
     models: ModelManager,
     hotkeys: HotkeyManager,
+    incremental: Mutex<Option<IncrementalSession>>,
+    incremental_task: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
     last_audio: Mutex<Option<AudioClip>>,
     latency_started: Mutex<Option<Instant>>,
     cancel_epoch: AtomicU64,
@@ -95,6 +100,8 @@ impl VoxRuntime {
                 settings_store,
                 models,
                 hotkeys: HotkeyManager::default(),
+                incremental: Mutex::new(None),
+                incremental_task: Mutex::new(None),
                 last_audio: Mutex::new(None),
                 latency_started: Mutex::new(None),
                 cancel_epoch: AtomicU64::new(0),
@@ -247,6 +254,7 @@ impl VoxRuntime {
                 let capture_runtime = self.clone();
                 let event_app = app.clone();
                 let callback_app = app.clone();
+                let incremental_app = app.clone();
                 tauri::async_runtime::spawn(async move {
                     let max_duration = Duration::from_secs(u64::from(
                         runtime.settings().await.max_recording_seconds,
@@ -264,6 +272,16 @@ impl VoxRuntime {
                         );
                         return;
                     }
+                    let settings = runtime.settings().await;
+                    *runtime.inner.incremental.lock().await =
+                        Some(IncrementalSession::new(IncrementalConfig::default()));
+                    let task = runtime.spawn_incremental_worker(
+                        incremental_app,
+                        epoch,
+                        settings.engine_id,
+                        settings.language,
+                    );
+                    *runtime.inner.incremental_task.lock().await = Some(task);
                     runtime.run_recording_clock(event_app, epoch, max_duration);
                 });
             }
@@ -286,6 +304,7 @@ impl VoxRuntime {
                 self.inner.recording_epoch.fetch_add(1, Ordering::SeqCst);
                 let runtime = self.clone();
                 tauri::async_runtime::spawn(async move {
+                    runtime.discard_incremental().await;
                     let _ = runtime.inner.audio.discard().await;
                     *runtime.inner.last_audio.lock().await = None;
                 });
@@ -382,12 +401,109 @@ impl VoxRuntime {
         });
     }
 
+    fn spawn_incremental_worker(
+        &self,
+        app: AppHandle,
+        epoch: u64,
+        engine_id: String,
+        language: crate::ports::LanguageHint,
+    ) -> tauri::async_runtime::JoinHandle<()> {
+        let runtime = self.clone();
+        tauri::async_runtime::spawn(async move {
+            let engine = match runtime.inner.engines.get(&engine_id) {
+                Ok(engine) => engine,
+                Err(error) => {
+                    tracing::warn!(%error, "incremental transcription is unavailable");
+                    if let Some(session) = runtime.inner.incremental.lock().await.as_mut() {
+                        session.mark_failed();
+                    }
+                    return;
+                }
+            };
+            let config = IncrementalConfig::default();
+            let mut interval = tokio::time::interval(Duration::from_millis(config.poll_ms));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                if runtime.inner.recording_epoch.load(Ordering::SeqCst) != epoch {
+                    break;
+                }
+                if !runtime.state().await.model_ready {
+                    continue;
+                }
+                let audio = match runtime.inner.audio.snapshot().await {
+                    Ok(audio) => audio,
+                    Err(error) => {
+                        tracing::debug!(%error, "live audio snapshot is no longer available");
+                        break;
+                    }
+                };
+                let chunk = runtime
+                    .inner
+                    .incremental
+                    .lock()
+                    .await
+                    .as_mut()
+                    .and_then(|session| session.next_chunk(&audio));
+                let Some(chunk) = chunk else {
+                    continue;
+                };
+                let range = chunk.range;
+                match engine.transcribe(chunk.audio, language.clone()).await {
+                    Ok(result) => {
+                        let live = runtime
+                            .inner
+                            .incremental
+                            .lock()
+                            .await
+                            .as_mut()
+                            .map(|session| session.ingest(range, result));
+                        if let Some(live) = live
+                            && runtime.inner.recording_epoch.load(Ordering::SeqCst) == epoch
+                        {
+                            runtime.queue_event(
+                                app.clone(),
+                                DictationEvent::PartialTranscript {
+                                    text: live.text,
+                                    stable_words: live.stable_words,
+                                },
+                            );
+                        }
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "background transcription paused; final pass will recover");
+                        if let Some(session) = runtime.inner.incremental.lock().await.as_mut() {
+                            session.mark_failed();
+                        }
+                        break;
+                    }
+                }
+            }
+        })
+    }
+
+    async fn wait_for_incremental_worker(&self) {
+        if let Some(task) = self.inner.incremental_task.lock().await.take()
+            && let Err(error) = task.await
+        {
+            tracing::warn!(%error, "incremental transcription worker did not exit cleanly");
+        }
+    }
+
+    async fn discard_incremental(&self) {
+        if let Some(task) = self.inner.incremental_task.lock().await.take() {
+            task.abort();
+        }
+        self.inner.incremental.lock().await.take();
+    }
+
     async fn transcribe_capture(&self, app: AppHandle, retry: bool) {
         let audio = if retry {
             self.inner.last_audio.lock().await.clone()
         } else {
             match self.inner.audio.stop().await {
                 Ok(audio) => {
+                    self.wait_for_incremental_worker().await;
                     *self.inner.last_audio.lock().await = Some(audio.clone());
                     Some(audio)
                 }
@@ -426,7 +542,18 @@ impl VoxRuntime {
             }
         };
         let duration_ms = audio.duration_ms;
-        let transcript = match engine.transcribe(audio, settings.language).await {
+        let final_chunk = self
+            .inner
+            .incremental
+            .lock()
+            .await
+            .as_ref()
+            .map(|session| session.final_chunk(&audio));
+        let (range, final_audio) = match final_chunk {
+            Some(chunk) => (Some(chunk.range), chunk.audio),
+            None => (None, audio),
+        };
+        let transcript = match engine.transcribe(final_audio, settings.language).await {
             Ok(transcript) => transcript,
             Err(error) => {
                 self.queue_event(
@@ -437,6 +564,17 @@ impl VoxRuntime {
                 );
                 return;
             }
+        };
+        let transcript = match range {
+            Some(range) => self
+                .inner
+                .incremental
+                .lock()
+                .await
+                .as_mut()
+                .map(|session| session.finish(range, transcript.clone()))
+                .unwrap_or(transcript),
+            None => transcript,
         };
         let refiner = self.inner.refiner.read().await.clone();
         let formatted = match refiner.refine(&transcript.text).await {
