@@ -1,5 +1,5 @@
 import { Keyboard, Languages, Mic2, Save, SlidersHorizontal } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { vox } from "../../lib/tauri";
 import type { LanguageHint, Settings as VoxSettings } from "../../lib/types";
@@ -56,13 +56,10 @@ export function Settings({ value, onSaved }: SettingsProps) {
     }
   };
 
-  const selectModel = useCallback(
-    (id: string) => {
-      patch("modelId", id);
-      void vox.selectModel(id).catch((caught) => setError(String(caught)));
-    },
-    [],
-  );
+  const selectModel = (id: string) => {
+    patch("modelId", id);
+    void vox.selectModel(id).catch((caught) => setError(String(caught)));
+  };
 
   const languageValue = draft.language.mode === "auto" ? "auto" : draft.language.language;
   const setLanguage = (value: string) => {
