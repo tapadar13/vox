@@ -35,6 +35,8 @@ impl DictationController {
                 self.state.phase = DictationPhase::Recording;
                 self.state.elapsed_ms = 0;
                 self.state.audio_level = 0.0;
+                self.state.partial_transcript = None;
+                self.state.stable_words = 0;
                 self.state.message = None;
                 self.state.delivery_mode = None;
                 vec![
@@ -90,6 +92,14 @@ impl DictationController {
                 DictationEvent::Elapsed { elapsed_ms },
             ) => {
                 self.state.elapsed_ms = elapsed_ms;
+                vec![]
+            }
+            (
+                DictationPhase::Recording | DictationPhase::CancelPending,
+                DictationEvent::PartialTranscript { text, stable_words },
+            ) => {
+                self.state.partial_transcript = Some(text);
+                self.state.stable_words = stable_words;
                 vec![]
             }
             (
@@ -302,5 +312,23 @@ mod tests {
             Some("Microphone permission denied")
         );
         assert!(transition.effects.contains(&Effect::DiscardCapture));
+    }
+
+    #[test]
+    fn live_transcripts_update_recording_state_without_side_effects() {
+        let mut controller = controller();
+        controller.dispatch(DictationEvent::Toggle).unwrap();
+        let transition = controller
+            .dispatch(DictationEvent::PartialTranscript {
+                text: "hello from Vox".to_owned(),
+                stable_words: 2,
+            })
+            .unwrap();
+        assert_eq!(
+            transition.state.partial_transcript.as_deref(),
+            Some("hello from Vox")
+        );
+        assert_eq!(transition.state.stable_words, 2);
+        assert!(transition.effects.is_empty());
     }
 }

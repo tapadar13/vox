@@ -12,6 +12,10 @@ pub enum DictationEvent {
     CancelExpired,
     RecordingTimedOut,
     AudioLevel(f32),
+    PartialTranscript {
+        text: String,
+        stable_words: usize,
+    },
     Elapsed {
         elapsed_ms: u64,
     },
