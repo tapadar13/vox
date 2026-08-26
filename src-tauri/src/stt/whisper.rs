@@ -52,7 +52,7 @@ impl SttEngine for WhisperEngine {
             .map(str::to_owned)
             .collect(),
             multilingual: true,
-            streaming: false,
+            streaming: true,
             model_size_bytes: 617_000_000,
         }
     }
@@ -187,6 +187,7 @@ mod tests {
     fn reports_multilingual_capabilities() {
         let capabilities = WhisperEngine::new().capabilities();
         assert!(capabilities.multilingual);
+        assert!(capabilities.streaming);
         assert!(capabilities.languages.contains(&"hi".to_owned()));
         assert!(capabilities.languages.contains(&"ar".to_owned()));
     }
