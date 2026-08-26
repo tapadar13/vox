@@ -1,10 +1,7 @@
-import { Keyboard, Languages, Mic2, Save, SlidersHorizontal } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { vox } from "../../lib/tauri";
 import type { LanguageHint, Settings as VoxSettings } from "../../lib/types";
-import { Button } from "../../ui/Button";
-import { GlassPanel } from "../../ui/GlassPanel";
 import { Toggle } from "../../ui/Toggle";
 import { HotkeyRecorder } from "./HotkeyRecorder";
 import { ModelManager } from "./ModelManager";
@@ -16,172 +13,111 @@ interface SettingsProps {
 }
 
 const languages = [
-  ["auto", "Auto-detect"],
-  ["en", "English"],
-  ["hi", "Hindi"],
-  ["es", "Spanish"],
-  ["it", "Italian"],
-  ["fr", "French"],
-  ["ar", "Arabic"],
-  ["de", "German"],
-  ["pt", "Portuguese"],
-  ["ja", "Japanese"],
-  ["zh", "Chinese"],
+  ["auto", "Auto-detect"], ["en", "English"], ["hi", "हिन्दी"],
+  ["es", "Español"], ["fr", "Français"], ["ar", "العربية"],
 ] as const;
 
 export function Settings({ value, onSaved }: SettingsProps) {
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const saveEpoch = useRef(0);
 
   useEffect(() => setDraft(value), [value]);
 
-  const patch = <Key extends keyof VoxSettings>(key: Key, next: VoxSettings[Key]) => {
-    setDraft((current) => ({ ...current, [key]: next }));
-    setSaved(false);
-  };
-
-  const save = async () => {
+  const persist = <Key extends keyof VoxSettings>(key: Key, nextValue: VoxSettings[Key]) => {
+    const next = { ...draft, [key]: nextValue };
+    const epoch = ++saveEpoch.current;
+    setDraft(next);
     setSaving(true);
     setError(null);
-    try {
-      await vox.updateSettings(draft);
-      setSaved(true);
-      onSaved(draft);
-      window.setTimeout(() => setSaved(false), 1_400);
-    } catch (caught) {
-      setError(typeof caught === "object" && caught && "message" in caught ? String(caught.message) : String(caught));
-    } finally {
-      setSaving(false);
-    }
+    void vox.updateSettings(next).then(() => {
+      if (epoch === saveEpoch.current) {
+        onSaved(next);
+        setSaving(false);
+      }
+    }).catch((caught) => {
+      if (epoch === saveEpoch.current) {
+        setSaving(false);
+        setError(caught instanceof Error ? caught.message : String(caught));
+      }
+    });
   };
 
   const selectModel = (id: string) => {
-    patch("modelId", id);
+    persist("modelId", id);
     void vox.selectModel(id).catch((caught) => setError(String(caught)));
   };
 
   const languageValue = draft.language.mode === "auto" ? "auto" : draft.language.language;
-  const setLanguage = (value: string) => {
-    const language: LanguageHint = value === "auto" ? { mode: "auto" } : { mode: "pinned", language: value };
-    patch("language", language);
+  const setLanguage = (next: string) => {
+    const language: LanguageHint = next === "auto" ? { mode: "auto" } : { mode: "pinned", language: next };
+    persist("language", language);
   };
 
   return (
-    <div className="pb-4">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-[24px] font-semibold tracking-tight">Settings</h1>
-          <p className="mt-1 text-[11px] text-white/38">Tune Vox to the way you speak and work.</p>
-        </div>
-        <Button variant="primary" icon={<Save className="size-3.5" />} busy={saving} onClick={() => void save()}>
-          {saved ? "Saved" : "Save changes"}
-        </Button>
+    <div className="relative flex h-full flex-col gap-2.5 overflow-hidden px-5 py-[18px]">
+      <header className="flex h-[30px] shrink-0 items-end justify-between" data-tauri-drag-region>
+        <h1 className="text-2xl font-[650] leading-7 tracking-[-.035em] text-[#11131a]">Settings</h1>
+        <p className="text-[9px] leading-3 text-[#8a909d]">{saving ? "Saving locally…" : "Vox v0.1.0"}</p>
       </header>
 
-      {error && <p className="mt-3 rounded-xl border border-rose-300/10 bg-rose-400/10 px-3 py-2 text-[10px] text-rose-200/80">{error}</p>}
+      {error && <p className="absolute inset-x-5 top-[52px] z-20 rounded-lg bg-[#fff0f3] px-2.5 py-1.5 text-[9px] text-[#a9445d] shadow-sm">{error}</p>}
 
-      <div className="mt-4 grid gap-3">
-        <GlassPanel className="p-4">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[.12em] text-white/38">
-            <Keyboard className="size-3.5" /> Dictation
-          </div>
-          <div className="flex items-center justify-between border-b border-white/[.055] py-2.5">
-            <div>
-              <p className="text-[13px] font-medium text-white/88">Global hotkey</p>
-              <p className="mt-0.5 text-[10px] text-white/34">Click, then press your preferred shortcut.</p>
-            </div>
-            <HotkeyRecorder value={draft.hotkey} onChange={(hotkey) => patch("hotkey", hotkey)} />
-          </div>
-          <Toggle
-            checked={draft.autoPaste}
-            onChange={(checked) => patch("autoPaste", checked)}
-            label="Paste at the cursor"
-            description="Falls back to the clipboard when Accessibility access is unavailable."
-          />
-          <div className="flex items-center justify-between border-t border-white/[.055] py-2.5">
-            <div>
-              <p className="text-[13px] font-medium text-white/88">Recording limit</p>
-              <p className="mt-0.5 text-[10px] text-white/34">Automatically finish forgotten recordings.</p>
-            </div>
-            <select
-              className="rounded-lg border border-white/[.09] bg-[#11131d] px-2.5 py-1.5 text-[11px] text-white/65 outline-none"
-              value={draft.maxRecordingSeconds}
-              onChange={(event) => patch("maxRecordingSeconds", Number(event.target.value))}
-            >
-              <option value={60}>1 minute</option>
-              <option value={180}>3 minutes</option>
-              <option value={300}>5 minutes</option>
-              <option value={600}>10 minutes</option>
-            </select>
-          </div>
-        </GlassPanel>
+      <div className="flex h-[326px] shrink-0 gap-2.5">
+        <div className="flex h-full w-[285px] shrink-0 flex-col gap-2">
+          <section className="flex h-[199px] shrink-0 flex-col rounded-[17px] bg-white/65 px-[13px] py-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,.88)]">
+            <h2 className="h-[22px] shrink-0 text-[11px] font-bold leading-[15px] tracking-[.09em] text-[#606775]">DICTATION</h2>
 
-        <GlassPanel className="p-4">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[.12em] text-white/38">
-            <Languages className="size-3.5" /> Language & text
-          </div>
-          <div className="flex items-center justify-between border-b border-white/[.055] py-2.5">
-            <div>
-              <p className="text-[13px] font-medium text-white/88">Language</p>
-              <p className="mt-0.5 text-[10px] text-white/34">Pinning a language is a little faster and more accurate.</p>
+            <div className="flex h-[45px] shrink-0 items-center justify-between border-b border-[#343a480f]">
+              <span className="text-[10px] font-[550] leading-[14px] text-[#343843]">Hotkey</span>
+              <HotkeyRecorder value={draft.hotkey} onChange={(hotkey) => persist("hotkey", hotkey)} />
             </div>
-            <select
-              className="rounded-lg border border-white/[.09] bg-[#11131d] px-2.5 py-1.5 text-[11px] text-white/65 outline-none"
-              value={languageValue}
-              onChange={(event) => setLanguage(event.target.value)}
-            >
-              {languages.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-            </select>
-          </div>
-          <Toggle
-            checked={draft.trimFillerWords}
-            onChange={(checked) => patch("trimFillerWords", checked)}
-            label="Trim filler words"
-            description="Remove standalone “um”, “uh”, “erm”, and “hmm”. Off by default."
-          />
-        </GlassPanel>
 
-        <GlassPanel className="p-4">
-          <div className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[.12em] text-white/38">
-            <Mic2 className="size-3.5" /> Local model
-          </div>
-          <ModelManager selected={draft.modelId} onSelect={selectModel} />
-        </GlassPanel>
-
-        <GlassPanel className="p-4">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[.12em] text-white/38">
-            <SlidersHorizontal className="size-3.5" /> System
-          </div>
-          <Toggle
-            checked={draft.launchAtLogin}
-            onChange={(checked) => patch("launchAtLogin", checked)}
-            label="Launch Vox at login"
-            description="Keep the menubar app ready without opening a dashboard window."
-          />
-          <div className="flex items-center justify-between border-t border-white/[.055] py-2.5">
-            <div>
-              <p className="text-[13px] font-medium text-white/88">Typing speed baseline</p>
-              <p className="mt-0.5 text-[10px] text-white/34">Used only to estimate time saved.</p>
-            </div>
-            <label className="flex items-center gap-2 text-[11px] text-white/45">
-              <input
-                className="w-14 rounded-lg border border-white/[.09] bg-[#11131d] px-2 py-1.5 text-right text-white/65 outline-none"
-                type="number"
-                min={20}
-                max={200}
-                value={draft.typingWpm}
-                onChange={(event) => patch("typingWpm", Number(event.target.value))}
-              />
-              WPM
+            <label className="flex h-[88px] shrink-0 items-start justify-between border-b border-[#343a480f] pt-[11px]">
+              <span className="flex flex-col gap-0.5 pt-1">
+                <span className="text-[10px] font-[550] leading-[14px] text-[#343843]">Language</span>
+                <span className="text-[8px] leading-[11px] text-[#8a909d]">{languageValue === "auto" ? "Auto-detect" : languageValue.toUpperCase()}</span>
+              </span>
+              <select className="h-7 w-[132px] rounded-[10px] bg-white/95 px-2 text-[9px] text-[#535966] shadow-[inset_0_0_0_1px_rgba(55,60,75,.07),0_8px_18px_rgba(42,47,63,.11)] outline-none" value={languageValue} onChange={(event) => setLanguage(event.target.value)}>
+                {languages.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              </select>
             </label>
-          </div>
-          <div className="border-t border-white/[.055]">
+
+            <div className="flex h-8 shrink-0 items-center">
+              <Toggle checked={draft.autoPaste} onChange={(checked) => persist("autoPaste", checked)} label="Auto-paste" />
+            </div>
+          </section>
+
+          <section className="flex h-[119px] shrink-0 flex-col rounded-[17px] bg-white/60 px-[13px] py-[11px] shadow-[inset_0_0_0_1px_rgba(255,255,255,.86)]">
+            <h2 className="h-[19px] shrink-0 text-[10px] font-bold leading-[14px] tracking-[.09em] text-[#666d7a]">GENERAL</h2>
+            <div className="flex h-7 shrink-0 items-center border-b border-[#343a480f]">
+              <Toggle checked={draft.launchAtLogin} onChange={(checked) => persist("launchAtLogin", checked)} label="Launch at login" />
+            </div>
+            <div className="flex h-[31px] shrink-0 items-center justify-between border-b border-[#343a480f]">
+              <span className="text-[9px] text-[#3d424e]">Appearance</span>
+              <div className="flex h-[21px] rounded-[7px] bg-[#eceef2] p-0.5" aria-label="Appearance follows macOS">
+                <span className="rounded-[5px] bg-white px-1.5 py-0.5 text-[8px] leading-[13px] text-[#3f4450] shadow-[0_1px_3px_rgba(40,44,56,.1)]">Auto</span>
+                <span className="px-[5px] py-0.5 text-[8px] leading-[13px] text-[#8a909d]">Light</span>
+                <span className="px-[5px] py-0.5 text-[8px] leading-[13px] text-[#8a909d]">Dark</span>
+              </div>
+            </div>
             <UpdateCard />
-          </div>
-        </GlassPanel>
+          </section>
+        </div>
+
+        <section className="flex h-full min-w-0 flex-1 flex-col rounded-[17px] bg-white/65 px-[13px] py-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,.88)]">
+          <ModelManager selected={draft.modelId} onSelect={selectModel} />
+        </section>
       </div>
+
+      <footer className="flex h-[26px] shrink-0 items-center justify-center gap-[7px] text-[9px] font-[550] leading-3 text-[#626977]">
+        <ShieldIcon /> 100% local. Your voice never leaves this Mac.
+      </footer>
     </div>
   );
+}
+
+function ShieldIcon() {
+  return <svg width="12" height="14" viewBox="0 0 14 16" aria-hidden="true"><path d="M7 1.5 12 3.4v3.8c0 3.1-2.1 5.8-5 7.3-2.9-1.5-5-4.2-5-7.3V3.4L7 1.5Z" fill="none" stroke="#7d61b0" strokeWidth="1.2" /><path d="m4.8 7.6 1.4 1.5 3.3-3.3" fill="none" stroke="#7d61b0" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
