@@ -47,11 +47,10 @@ impl StatsService {
         } else {
             input.total_words as f64 * 60_000.0 / input.speaking_ms as f64
         };
-        let average_latency_ms = if input.transcription_count == 0 {
-            0
-        } else {
-            input.total_latency_ms / input.transcription_count
-        };
+        let average_latency_ms = input
+            .total_latency_ms
+            .checked_div(input.transcription_count)
+            .unwrap_or_default();
 
         let activity = input
             .words_by_day
