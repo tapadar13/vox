@@ -128,13 +128,13 @@ impl VoxRuntime {
         if settings.hotkey != previous.hotkey {
             self.register_main_hotkey(app, &settings.hotkey)?;
         }
-        if settings.launch_at_login != previous.launch_at_login {
-            if let Err(error) = self.apply_autostart(app, settings.launch_at_login) {
-                if settings.hotkey != previous.hotkey {
-                    let _ = self.register_main_hotkey(app, &previous.hotkey);
-                }
-                return Err(error);
+        if settings.launch_at_login != previous.launch_at_login
+            && let Err(error) = self.apply_autostart(app, settings.launch_at_login)
+        {
+            if settings.hotkey != previous.hotkey {
+                let _ = self.register_main_hotkey(app, &previous.hotkey);
             }
+            return Err(error);
         }
         if let Err(error) = self.inner.settings_store.save(&settings).await {
             if settings.hotkey != previous.hotkey {
