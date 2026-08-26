@@ -54,10 +54,10 @@ impl SqliteStore {
 
         for row in rows {
             let (date, words) = row.map_err(db_error)?;
-            if let Ok(date) = NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
-                if let Some(slot) = words_by_day.get_mut(&date) {
-                    *slot = u64::try_from(words).unwrap_or_default();
-                }
+            if let Ok(date) = NaiveDate::parse_from_str(&date, "%Y-%m-%d")
+                && let Some(slot) = words_by_day.get_mut(&date)
+            {
+                *slot = u64::try_from(words).unwrap_or_default();
             }
         }
 
