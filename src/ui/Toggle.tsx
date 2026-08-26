@@ -16,6 +16,7 @@ export function Toggle({ checked, onChange, label, description, disabled }: Togg
       <input
         className="peer sr-only"
         type="checkbox"
+        aria-label={label}
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
