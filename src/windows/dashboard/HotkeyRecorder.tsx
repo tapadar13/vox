@@ -41,10 +41,15 @@ export function HotkeyRecorder({ value, onChange }: HotkeyRecorderProps) {
     <button
       ref={buttonRef}
       type="button"
-      className={`min-w-32 rounded-lg border px-3 py-1.5 text-center font-mono text-[11px] transition ${recording ? "border-violet-300/35 bg-violet-300/10 text-violet-200" : "border-white/[.09] bg-black/15 text-white/62 hover:border-white/15"}`}
+      className="flex min-w-[118px] flex-col items-end gap-1 text-right"
       onClick={() => setRecording(true)}
     >
-      {recording ? "Press shortcut…" : formatHotkey(value)}
+      <span className={`rounded-[7px] px-[7px] py-1 text-[10px] font-[650] leading-3 transition ${recording ? "border border-dashed border-[#ff4d8d59] bg-[#ff4d8d0f] text-[#c04c91]" : "bg-[#f5f6f8] text-[#454b58] shadow-[inset_0_0_0_1px_rgba(53,58,71,.1),0_1px_1px_rgba(25,27,33,.05)]"}`}>
+        {recording ? "Press shortcut…" : formatHotkey(value)}
+      </span>
+      <span className={`text-[8px] leading-[11px] ${recording ? "text-[#c04c91]" : "text-[#949aa6]"}`}>
+        {recording ? "listening for keys…" : "click to re-record"}
+      </span>
     </button>
   );
 }
