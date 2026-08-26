@@ -42,9 +42,19 @@ pub enum LanguageHint {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TranscriptSegment {
+    pub text: String,
+    pub start_ms: u64,
+    pub end_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Transcript {
     pub text: String,
     pub language: String,
+    #[serde(default)]
+    pub segments: Vec<TranscriptSegment>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

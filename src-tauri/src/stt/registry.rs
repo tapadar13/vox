@@ -74,6 +74,7 @@ mod tests {
             Ok(Transcript {
                 text: "test".to_owned(),
                 language: "en".to_owned(),
+                segments: vec![],
             })
         }
     }
