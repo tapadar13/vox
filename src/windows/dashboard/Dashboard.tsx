@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 
 import { vox } from "../../lib/tauri";
 import { defaultSettings, type Settings as VoxSettings } from "../../lib/types";
+import { resizeVoxWindow } from "../../lib/window";
 import { DashboardShell, type DashboardPage } from "./DashboardShell";
 
 const History = lazy(() => import("./History").then(({ History: component }) => ({ default: component })));
@@ -28,6 +29,10 @@ export function Dashboard() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (loaded) void resizeVoxWindow(settings.onboardingComplete ? 720 : 413, settings.onboardingComplete ? 480 : 520);
+  }, [loaded, settings.onboardingComplete]);
 
   if (!loaded) {
     return <main className="vox-paper-background min-h-screen" />;
