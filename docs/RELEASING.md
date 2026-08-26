@@ -60,7 +60,7 @@ first-launch Gatekeeper warning for downloaded builds.
 With the updater signing key available:
 
 ```bash
-TAURI_SIGNING_PRIVATE_KEY_PATH=/secure/path/vox-updater.key \
+TAURI_SIGNING_PRIVATE_KEY=/secure/path/vox-updater.key \
   npm run tauri build -- --debug --bundles app,dmg
 ```
 
