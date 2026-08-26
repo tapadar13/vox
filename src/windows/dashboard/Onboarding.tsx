@@ -1,39 +1,25 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Download,
-  Keyboard,
-  LockKeyhole,
-  Mic,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { formatBytes, formatHotkey } from "../../lib/format";
 import { isTauri, onModelProgress, vox } from "../../lib/tauri";
 import type { ManagedModel, ModelDownloadProgress, Settings } from "../../lib/types";
-import { Button } from "../../ui/Button";
 import { VoxMark } from "../../ui/VoxMark";
-import { HotkeyRecorder } from "./HotkeyRecorder";
 
 interface OnboardingProps {
   settings: Settings;
   onComplete: (settings: Settings) => void;
 }
 
-const steps = ["Welcome", "Microphone", "Accessibility", "Model", "Ready"] as const;
-
 export function Onboarding({ settings, onComplete }: OnboardingProps) {
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState(settings);
   const [micGranted, setMicGranted] = useState(false);
   const [models, setModels] = useState<ManagedModel[]>([]);
   const [downloading, setDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
   const [progress, setProgress] = useState<ModelDownloadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const attemptedDownload = useRef(false);
 
   useEffect(() => {
     void vox.models().then(setModels);
@@ -50,9 +36,22 @@ export function Onboarding({ settings, onComplete }: OnboardingProps) {
   }, []);
 
   const selectedModel = useMemo(
-    () => models.find((model) => model.id === draft.modelId),
-    [draft.modelId, models],
+    () => models.find((model) => model.id === settings.modelId) ?? models[0],
+    [models, settings.modelId],
   );
+  const modelReady = Boolean(selectedModel?.installed || downloaded);
+
+  useEffect(() => {
+    if (step !== 2 || !selectedModel || selectedModel.installed || attemptedDownload.current) return;
+    attemptedDownload.current = true;
+    setDownloading(true);
+    setError(null);
+    void vox.downloadModel(selectedModel.id)
+      .then(() => vox.selectModel(selectedModel.id))
+      .then(() => setDownloaded(true))
+      .catch((caught) => setError(caught instanceof Error ? caught.message : String(caught)))
+      .finally(() => setDownloading(false));
+  }, [selectedModel, step]);
 
   const askForMicrophone = async () => {
     setError(null);
@@ -75,222 +74,132 @@ export function Onboarding({ settings, onComplete }: OnboardingProps) {
     }
   };
 
-  const chooseModel = (modelId: string) => {
-    setDraft((current) => ({ ...current, modelId }));
-  };
-
-  const downloadSelectedModel = async () => {
-    if (!selectedModel) return;
-    setDownloading(true);
-    setError(null);
-    try {
-      await vox.downloadModel(selectedModel.id);
-      await vox.selectModel(selectedModel.id);
-      setModels(await vox.models());
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setDownloading(false);
-      setProgress(null);
-    }
-  };
-
   const finish = async () => {
+    const complete = { ...settings, onboardingComplete: true };
     setError(null);
-    const complete = { ...draft, onboardingComplete: true };
     try {
       await vox.updateSettings(complete);
       onComplete(complete);
     } catch (caught) {
-      setError(errorMessage(caught));
+      setError(caught instanceof Error ? caught.message : String(caught));
     }
   };
 
-  const advance = () => setStep((current) => Math.min(steps.length - 1, current + 1));
-  const back = () => setStep((current) => Math.max(0, current - 1));
-
   return (
-    <main className="vox-dashboard grid min-h-screen place-items-center overflow-hidden p-8">
-      <div className="w-full max-w-[570px]">
-        <div className="mb-6 flex items-center justify-center gap-2" aria-label={`Step ${step + 1} of ${steps.length}`}>
-          {steps.map((label, index) => (
-            <span
-              key={label}
-              className={`h-1 rounded-full transition-all ${index === step ? "w-8 bg-violet-300" : index < step ? "w-4 bg-violet-300/45" : "w-4 bg-white/10"}`}
-            />
-          ))}
-        </div>
+    <main className="vox-paper-background h-screen w-screen overflow-hidden">
+      <section className="relative flex h-full w-full flex-col items-center overflow-hidden rounded-[26px] border border-white/90 bg-white/70 px-7 py-6 text-[#191b23] shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_24px_54px_rgba(51,57,78,.14)]">
+        <header className="flex h-[22px] w-full shrink-0 items-center justify-between" data-tauri-drag-region>
+          <span className="text-[10px] font-[650] leading-[14px] tracking-[.12em] text-[#7e8491]">VOX SETUP</span>
+          <span className="text-[10px] font-semibold leading-[14px] text-[#a0a5af]">0{step + 1} / 03</span>
+        </header>
 
-        <section className="rounded-[28px] border border-white/[.09] bg-[#10131de6] p-8 shadow-[0_30px_100px_rgba(0,0,0,.48)] backdrop-blur-2xl">
-          {step === 0 && (
-            <OnboardingStep
-              icon={<VoxMark />}
-              eyebrow="Welcome to Vox"
-              title="Turn your voice into text. Privately."
-              body="Vox records only while you hold the shortcut, transcribes entirely on this Mac, and never uploads your audio."
-            >
-              <div className="mt-6 grid grid-cols-3 gap-2.5 text-center text-[10px] text-white/42">
-                <Feature icon={<LockKeyhole />} label="100% local" />
-                <Feature icon={<Keyboard />} label="Works anywhere" />
-                <Feature icon={<Sparkles />} label="Ready in seconds" />
-              </div>
-            </OnboardingStep>
-          )}
+        {error && <p className="absolute inset-x-7 top-12 z-10 rounded-lg bg-[#fff0f3] px-2.5 py-1.5 text-center text-[9px] text-[#a9445d] shadow-sm">{error}</p>}
 
-          {step === 1 && (
-            <OnboardingStep
-              icon={<Mic />}
-              eyebrow="Microphone"
-              title="Vox needs to hear you."
-              body="macOS will ask for microphone access. Vox processes the recording locally and discards the audio after transcription."
-            >
-              <Button
-                className="mt-6 w-full"
-                variant={micGranted ? "secondary" : "primary"}
-                icon={micGranted ? <Check className="size-4 text-emerald-300" /> : <Mic className="size-4" />}
-                onClick={() => void askForMicrophone()}
-              >
-                {micGranted ? "Microphone allowed" : "Allow microphone access"}
-              </Button>
-            </OnboardingStep>
-          )}
-
-          {step === 2 && (
-            <OnboardingStep
-              icon={<ShieldCheck />}
-              eyebrow="Accessibility"
-              title="Paste straight into any app."
-              body="Accessibility access lets Vox paste at your cursor. It is optional—without it, your transcription is copied to the clipboard."
-            >
-              <Button
-                className="mt-6 w-full"
-                variant="primary"
-                icon={<ShieldCheck className="size-4" />}
-                onClick={() => void openAccessibility()}
-              >
-                Open Accessibility settings
-              </Button>
-              <p className="mt-3 text-center text-[10px] text-white/28">You can continue without granting access.</p>
-            </OnboardingStep>
-          )}
-
-          {step === 3 && (
-            <OnboardingStep
-              icon={<Download />}
-              eyebrow="Local speech model"
-              title="Choose your balance."
-              body="Download one verified Whisper model. The balanced model is a good first choice; Turbo gives the best multilingual accuracy."
-            >
-              <div className="mt-5 space-y-2">
-                {models.map((model) => (
-                  <button
-                    key={model.id}
-                    type="button"
-                    className={`flex w-full items-center rounded-xl border p-3 text-left transition ${model.id === draft.modelId ? "border-violet-300/35 bg-violet-300/[.08]" : "border-white/[.07] bg-black/10 hover:border-white/15"}`}
-                    onClick={() => chooseModel(model.id)}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[12px] font-medium text-white/82">{model.name}</span>
-                      <span className="mt-0.5 block text-[9px] text-white/32">{formatBytes(model.sizeBytes)} · {model.speed}</span>
-                    </span>
-                    {model.installed && <span className="text-[9px] text-emerald-300/70">Installed</span>}
-                    {model.id === draft.modelId && !model.installed && <span className="size-2 rounded-full bg-violet-300" />}
-                  </button>
-                ))}
-              </div>
-              {selectedModel && !selectedModel.installed && (
-                <div className="mt-3">
-                  <Button className="w-full" variant="primary" busy={downloading} onClick={() => void downloadSelectedModel()}>
-                    {downloading && progress
-                      ? `Downloading ${Math.round(progress.fraction * 100)}%`
-                      : `Download ${formatBytes(selectedModel.sizeBytes)}`}
-                  </Button>
-                  {downloading && progress && (
-                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-violet-300 transition-[width]" style={{ width: `${progress.fraction * 100}%` }} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </OnboardingStep>
-          )}
-
-          {step === 4 && (
-            <OnboardingStep
-              icon={<Check />}
-              eyebrow="You’re ready"
-              title="Speak naturally. Vox handles the rest."
-              body="Press your shortcut once to start, speak, then press it again to transcribe and paste. Press Escape during recording to cancel."
-            >
-              <div className="mt-6 rounded-2xl border border-violet-300/15 bg-violet-300/[.06] p-4 text-center">
-                <p className="text-[9px] uppercase tracking-[.18em] text-white/30">Your shortcut</p>
-                <div className="mt-2 flex items-center justify-center gap-3">
-                  <HotkeyRecorder value={draft.hotkey} onChange={(hotkey) => setDraft((current) => ({ ...current, hotkey }))} />
-                  <span className="text-[10px] text-white/28">{formatHotkey(draft.hotkey)}</span>
-                </div>
-              </div>
-            </OnboardingStep>
-          )}
-
-          {error && <p className="mt-4 rounded-xl bg-rose-400/10 px-3 py-2 text-[10px] text-rose-200/80">{error}</p>}
-
-          <footer className="mt-7 flex items-center justify-between border-t border-white/[.06] pt-5">
-            <Button variant="ghost" icon={<ArrowLeft className="size-3.5" />} onClick={back} disabled={step === 0}>
-              Back
-            </Button>
-            {step < steps.length - 1 ? (
-              <Button variant="primary" icon={<ArrowRight className="size-3.5" />} onClick={advance}>
-                Continue
-              </Button>
-            ) : (
-              <Button variant="primary" icon={<Check className="size-3.5" />} onClick={() => void finish()}>
-                Start using Vox
-              </Button>
-            )}
-          </footer>
-        </section>
-      </div>
+        {step === 0 && <WelcomeStep onContinue={() => setStep(1)} />}
+        {step === 1 && (
+          <PermissionsStep
+            micGranted={micGranted}
+            onMicrophone={() => void askForMicrophone()}
+            onAccessibility={() => void openAccessibility()}
+            onContinue={() => setStep(2)}
+          />
+        )}
+        {step === 2 && (
+          <DownloadStep
+            hotkey={settings.hotkey}
+            model={selectedModel}
+            downloading={downloading}
+            ready={modelReady}
+            progress={progress}
+            onFinish={() => void finish()}
+          />
+        )}
+      </section>
     </main>
   );
 }
 
-function OnboardingStep({
-  icon,
-  eyebrow,
-  title,
-  body,
-  children,
-}: {
-  icon: ReactNode;
-  eyebrow: string;
-  title: string;
-  body: string;
-  children: ReactNode;
-}) {
+function WelcomeStep({ onContinue }: { onContinue: () => void }) {
   return (
-    <div>
-      <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-white/10 bg-white/[.055] text-violet-200 [&>svg]:size-6">
-        {icon}
+    <>
+      <div className="grid h-[188px] w-full shrink-0 place-items-center"><VoxMark variant="hero" /></div>
+      <div className="flex h-[110px] w-full shrink-0 flex-col items-center gap-2.5 text-center">
+        <h1 className="text-[29px] font-[680] leading-[34px] tracking-[-.045em] text-[#161820]">Type with your voice.<br />Everywhere.</h1>
+        <p className="text-xs leading-[18px] text-[#6f7684]">Press one hotkey, speak naturally, and Vox pastes polished text wherever your cursor is.</p>
       </div>
-      <p className="mt-5 text-center text-[10px] font-medium uppercase tracking-[.19em] text-violet-300/65">{eyebrow}</p>
-      <h1 className="mx-auto mt-2 max-w-md text-center text-[26px] font-semibold leading-tight tracking-tight">{title}</h1>
-      <p className="mx-auto mt-3 max-w-md text-center text-[12px] leading-relaxed text-white/42">{body}</p>
-      {children}
-    </div>
+      <div className="flex h-[45px] w-full shrink-0 items-center justify-center gap-2.5 text-[9px] font-semibold leading-3 text-[#616876]">
+        <span>ANY APP</span><Dot /><span>100% LOCAL</span><Dot /><span>INSTANT</span>
+      </div>
+      <div className="flex h-[70px] w-full shrink-0 items-center justify-center">
+        <button type="button" className="vox-paper-gradient flex h-12 w-full items-center justify-center gap-2 rounded-[15px] text-[13px] font-[650] text-white shadow-[0_12px_24px_rgba(201,69,171,.22)]" onClick={onContinue}>Continue <span className="text-[17px]">→</span></button>
+      </div>
+      <StepDots step={0} className="h-9" />
+    </>
   );
 }
 
-function Feature({ icon, label }: { icon: ReactNode; label: string }) {
+function PermissionsStep({ micGranted, onMicrophone, onAccessibility, onContinue }: { micGranted: boolean; onMicrophone: () => void; onAccessibility: () => void; onContinue: () => void }) {
   return (
-    <div className="rounded-xl border border-white/[.07] bg-white/[.035] p-3">
-      <div className="mx-auto mb-2 w-fit text-violet-200/70 [&>svg]:size-4">{icon}</div>
-      {label}
+    <>
+      <div className="flex h-[158px] w-full shrink-0 flex-col items-center justify-center gap-[11px] text-center">
+        <div className="grid size-[78px] shrink-0 place-items-center rounded-[26px] bg-[linear-gradient(145deg,oklab(0.708_0.16_0.092/.18),oklab(0.686_0.218_0.012/.18)_48%,oklab(0.606_0.085_-0.202/.2))] shadow-[inset_0_0_0_1px_rgba(255,255,255,.75)]"><PermissionHero /></div>
+        <h1 className="text-2xl font-[670] leading-[29px] tracking-[-.035em]">Two small permissions</h1>
+        <p className="text-[11px] leading-4 text-[#757c89]">Vox needs only what makes dictation work.</p>
+      </div>
+      <div className="flex h-[178px] w-full shrink-0 flex-col gap-[9px]">
+        <PermissionRow type="microphone" title="Microphone" detail="To hear you speak" granted={micGranted} action="Grant access" onClick={onMicrophone} />
+        <PermissionRow type="accessibility" title="Accessibility" detail="So Vox can paste for you" action="Grant access" onClick={onAccessibility} tall />
+      </div>
+      <div className="flex h-[114px] w-full shrink-0 flex-col items-center justify-end gap-[17px]">
+        <button type="button" className="text-[10px] font-[550] leading-[14px] text-[#8b6bab]" onClick={onContinue}>Skip for now</button>
+        <StepDots step={1} />
+      </div>
+    </>
+  );
+}
+
+function DownloadStep({ hotkey, model, downloading, ready, progress, onFinish }: { hotkey: string; model?: ManagedModel; downloading: boolean; ready: boolean; progress: ModelDownloadProgress | null; onFinish: () => void }) {
+  const fraction = ready ? 1 : progress?.fraction ?? 0;
+  const percentage = Math.round(fraction * 100);
+  const downloadedBytes = progress?.downloadedBytes ?? 0;
+  const totalBytes = progress?.totalBytes ?? model?.sizeBytes ?? 600_000_000;
+  return (
+    <>
+      <div className="grid h-[190px] w-full shrink-0 place-items-center">
+        <div className="grid size-[132px] shrink-0 place-items-center rounded-full shadow-[0_18px_40px_rgba(149,76,199,.17)]" style={{ background: `conic-gradient(#ff4d8d 0%, #d74692 ${percentage / 2}%, #8b5cf6 ${percentage}%, #eceaf0 ${percentage}%, #eceaf0 100%)` }}>
+          <div className="flex size-28 flex-col items-center justify-center rounded-full bg-white/95"><DownloadIcon /><span className="text-base font-[680] leading-5 text-[#343843]">{percentage}%</span></div>
+        </div>
+      </div>
+      <div className="flex h-[92px] w-full shrink-0 flex-col items-center gap-2 text-center">
+        <h1 className="text-[23px] font-[670] leading-7 tracking-[-.035em]">{ready ? "Whisper Turbo is ready" : "Downloading Whisper Turbo…"}</h1>
+        <p className="text-[11px] font-[550] leading-[15px] text-[#6e7582]">{formatBytes(downloadedBytes)} of {formatBytes(totalBytes)}</p>
+        <p className="text-[10px] leading-[15px] text-[#8a909d]">One-time download. After this, everything is offline.</p>
+      </div>
+      <button type="button" className="flex h-[122px] w-full shrink-0 items-center justify-between gap-3 rounded-[18px] bg-white/75 px-[15px] py-3.5 text-left shadow-[inset_0_0_0_1px_rgba(255,255,255,.88)] disabled:opacity-55" disabled={!ready || downloading} onClick={onFinish}>
+        <span className="flex flex-col gap-[5px]"><span className="text-[13px] font-[650] leading-[17px] text-[#30343e]">Try it now</span><span className="text-[9px] leading-[13px] text-[#7e8592]">Press the hotkey and say hello.</span></span>
+        <span className="grid h-12 place-items-center rounded-[13px] bg-[#f5f6f8] px-[15px] text-base font-[670] text-[#454b58] shadow-[inset_0_0_0_1px_rgba(53,58,71,.11),0_3px_8px_rgba(25,27,33,.06)]">{formatHotkey(hotkey)}</span>
+      </button>
+      <StepDots step={2} className="h-[46px]" />
+    </>
+  );
+}
+
+function PermissionRow({ type, title, detail, action, granted, tall, onClick }: { type: "microphone" | "accessibility"; title: string; detail: string; action: string; granted?: boolean; tall?: boolean; onClick: () => void }) {
+  return (
+    <div className={`flex w-full shrink-0 items-center gap-[11px] rounded-2xl bg-white/75 px-3 py-[11px] shadow-[inset_0_0_0_1px_rgba(255,255,255,.88)] ${tall ? "h-[88px]" : "h-[74px]"}`}>
+      <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${type === "microphone" ? "bg-[#42b0671a]" : "bg-[#8b5cf617]"}`}>{type === "microphone" ? <MicrophoneIcon /> : <AccessibilityIcon />}</span>
+      <span className="min-w-0 flex-1"><span className="block text-xs font-[620] leading-4 text-[#30343e]">{title}</span><span className="mt-[3px] block text-[9px] leading-3 text-[#838996]">{detail}</span></span>
+      {granted ? <span className="text-[9px] font-[650] text-[#3a8d58]">Granted ✓</span> : <button type="button" className="vox-paper-gradient h-7 rounded-[9px] px-2.5 text-[9px] font-[650] text-white" onClick={onClick}>{action}</button>}
     </div>
   );
 }
 
-function errorMessage(caught: unknown): string {
-  return typeof caught === "object" && caught && "message" in caught
-    ? String(caught.message)
-    : String(caught);
+function StepDots({ step, className = "" }: { step: number; className?: string }) {
+  return <div className={`flex w-full shrink-0 items-center justify-center gap-1.5 ${className}`}>{[0, 1, 2].map((index) => <span key={index} className={`${index === step ? "h-1.5 w-5 bg-[#cf56c4]" : "size-1.5 bg-[#d8dbe1]"} rounded-full`} />)}</div>;
 }
+
+function Dot() { return <span className="size-[3px] rounded-full bg-[#c3c7cf]" />; }
+function PermissionHero() { return <svg width="37" height="42" viewBox="0 0 38 43" aria-hidden="true"><path d="M19 3 33 8.3v10.6c0 8.7-5.8 16.3-14 20.5C10.8 35.2 5 27.6 5 18.9V8.3L19 3Z" fill="none" stroke="#b34dc2" strokeWidth="2" /><rect x="15" y="11" width="8" height="14" rx="4" fill="none" stroke="#ff5a83" strokeWidth="2" /><path d="M11 20a8 8 0 0 0 16 0M19 28v4" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" /></svg>; }
+function MicrophoneIcon() { return <svg width="16" height="21" viewBox="0 0 17 22" aria-hidden="true"><rect x="5" y="1" width="7" height="13" rx="3.5" fill="none" stroke="#3a9e60" strokeWidth="1.5" /><path d="M2.5 10.5a6 6 0 0 0 12 0M8.5 16.5V20" fill="none" stroke="#3a9e60" strokeWidth="1.5" strokeLinecap="round" /></svg>; }
+function AccessibilityIcon() { return <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true"><circle cx="10.5" cy="4" r="2.2" fill="none" stroke="#8f5cd1" strokeWidth="1.5" /><path d="M3 8h15M10.5 8v10M6 18l4.5-6 4.5 6" fill="none" stroke="#8f5cd1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
+function DownloadIcon() { return <svg width="25" height="27" viewBox="0 0 26 28" aria-hidden="true"><path d="M13 3v14m0 0-5-5m5 5 5-5M4 22v3h18v-3" fill="none" stroke="#a257d3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
