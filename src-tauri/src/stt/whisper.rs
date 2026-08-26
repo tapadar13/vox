@@ -11,7 +11,9 @@ use whisper_rs::{
 use crate::{
     audio::TRANSCRIPTION_SAMPLE_RATE,
     error::{VoxError, VoxResult},
-    ports::{AudioClip, EngineCaps, EngineId, LanguageHint, SttEngine, Transcript},
+    ports::{
+        AudioClip, EngineCaps, EngineId, LanguageHint, SttEngine, Transcript, TranscriptSegment,
+    },
 };
 
 #[derive(Default)]
@@ -129,16 +131,24 @@ fn transcribe_blocking(
         .full(parameters, &audio.samples)
         .map_err(|error| VoxError::Stt(error.to_string()))?;
 
-    let text = state
+    let segments = state
         .as_iter()
         .map(|segment| {
-            segment
+            let text = segment
                 .to_str_lossy()
                 .map(|text| text.into_owned())
-                .map_err(|error| VoxError::Stt(error.to_string()))
+                .map_err(|error| VoxError::Stt(error.to_string()))?;
+            Ok(TranscriptSegment {
+                text,
+                start_ms: centiseconds_to_ms(segment.start_timestamp()),
+                end_ms: centiseconds_to_ms(segment.end_timestamp()),
+            })
         })
-        .collect::<VoxResult<Vec<_>>>()?
-        .join("");
+        .collect::<VoxResult<Vec<_>>>()?;
+    let text = segments
+        .iter()
+        .map(|segment| segment.text.as_str())
+        .collect::<String>();
     let detected = pinned_language.map(str::to_owned).unwrap_or_else(|| {
         get_lang_str(state.full_lang_id_from_state())
             .unwrap_or("und")
@@ -148,7 +158,12 @@ fn transcribe_blocking(
     Ok(Transcript {
         text,
         language: detected,
+        segments,
     })
+}
+
+fn centiseconds_to_ms(value: i64) -> u64 {
+    u64::try_from(value).unwrap_or_default().saturating_mul(10)
 }
 
 #[cfg(test)]
@@ -171,5 +186,11 @@ mod tests {
         assert!(capabilities.multilingual);
         assert!(capabilities.languages.contains(&"hi".to_owned()));
         assert!(capabilities.languages.contains(&"ar".to_owned()));
+    }
+
+    #[test]
+    fn converts_whisper_timestamps_without_underflow() {
+        assert_eq!(centiseconds_to_ms(125), 1_250);
+        assert_eq!(centiseconds_to_ms(-1), 0);
     }
 }
