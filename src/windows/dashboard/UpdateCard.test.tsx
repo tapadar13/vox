@@ -19,7 +19,7 @@ describe("UpdateCard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Check now" }));
 
-    expect(await screen.findByText("You’re running the latest version.")).toBeInTheDocument();
+    expect(await screen.findByText("v0.1.0 · Up to date")).toBeInTheDocument();
   });
 
   it("installs an available update", async () => {
@@ -32,7 +32,7 @@ describe("UpdateCard", () => {
     render(<UpdateCard />);
 
     fireEvent.click(screen.getByRole("button", { name: "Check now" }));
-    expect(await screen.findByText("Vox 0.2.0 is ready to install.")).toBeInTheDocument();
+    expect(await screen.findByText("Vox 0.2.0 · Install")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Install & restart" }));
 
     await waitFor(() => expect(updater.installUpdate).toHaveBeenCalledWith(candidate, expect.any(Function)));
