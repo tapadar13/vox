@@ -94,6 +94,7 @@ pub trait AudioInput: Send + Sync {
         max_duration: Duration,
         on_level: Arc<dyn Fn(f32) + Send + Sync>,
     ) -> VoxResult<()>;
+    async fn snapshot(&self) -> VoxResult<AudioClip>;
     async fn stop(&self) -> VoxResult<AudioClip>;
     async fn discard(&self) -> VoxResult<()>;
 }

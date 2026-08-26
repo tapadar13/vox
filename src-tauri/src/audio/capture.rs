@@ -14,14 +14,11 @@ use crate::{
     ports::{AudioClip, AudioInput},
 };
 
-use super::{
-    SampleReader, SampleWriter, TRANSCRIPTION_SAMPLE_RATE, bounded, to_transcription_rate,
-};
+use super::{CaptureWorker, SampleWriter, TRANSCRIPTION_SAMPLE_RATE, bounded};
 
 struct ActiveCapture {
     stream: Stream,
-    reader: SampleReader,
-    input_rate: u32,
+    worker: CaptureWorker,
 }
 
 pub struct CpalAudioInput {
@@ -69,10 +66,12 @@ impl AudioInput for CpalAudioInput {
             .map_err(|error| VoxError::Audio(error.to_string()))?;
         let input_rate = supported.sample_rate();
         let channels = usize::from(supported.channels());
-        let capacity = (u64::from(input_rate) * max_duration.as_secs())
+        let raw_capacity = (u64::from(input_rate) * 2).try_into().unwrap_or(usize::MAX);
+        let output_capacity = (u64::from(TRANSCRIPTION_SAMPLE_RATE) * max_duration.as_secs())
             .try_into()
             .unwrap_or(usize::MAX);
-        let (writer, reader) = bounded(capacity);
+        let (writer, reader) = bounded(raw_capacity);
+        let worker = CaptureWorker::start(reader, input_rate, output_capacity)?;
         let config: StreamConfig = supported.into();
 
         let stream = match supported.sample_format() {
@@ -93,12 +92,16 @@ impl AudioInput for CpalAudioInput {
         stream
             .play()
             .map_err(|error| VoxError::Audio(error.to_string()))?;
-        *active = Some(ActiveCapture {
-            stream,
-            reader,
-            input_rate,
-        });
+        *active = Some(ActiveCapture { stream, worker });
         Ok(())
+    }
+
+    async fn snapshot(&self) -> VoxResult<AudioClip> {
+        let active = self.lock_active()?;
+        let capture = active
+            .as_ref()
+            .ok_or_else(|| VoxError::Audio("capture is not running".to_owned()))?;
+        Ok(clip_from_samples(capture.worker.snapshot()?))
     }
 
     async fn stop(&self) -> VoxResult<AudioClip> {
@@ -107,25 +110,24 @@ impl AudioInput for CpalAudioInput {
             .take()
             .ok_or_else(|| VoxError::Audio("capture is not running".to_owned()))?;
         drop(capture.stream);
-        let dropped = capture.reader.dropped_samples();
-        let input = capture.reader.drain();
-        if dropped > 0 {
-            tracing::warn!(dropped, "microphone ring buffer reached its hard limit");
-        }
-        let duration_ms = input.len() as u64 * 1_000 / u64::from(capture.input_rate);
-        let samples = to_transcription_rate(&input, capture.input_rate)?;
-        Ok(AudioClip {
-            samples,
-            sample_rate: TRANSCRIPTION_SAMPLE_RATE,
-            duration_ms,
-        })
+        Ok(clip_from_samples(capture.worker.finish()?))
     }
 
     async fn discard(&self) -> VoxResult<()> {
         if let Some(capture) = self.lock_active()?.take() {
             drop(capture.stream);
+            capture.worker.discard()?;
         }
         Ok(())
+    }
+}
+
+fn clip_from_samples(samples: Vec<f32>) -> AudioClip {
+    let duration_ms = samples.len() as u64 * 1_000 / u64::from(TRANSCRIPTION_SAMPLE_RATE);
+    AudioClip {
+        samples,
+        sample_rate: TRANSCRIPTION_SAMPLE_RATE,
+        duration_ms,
     }
 }
 
