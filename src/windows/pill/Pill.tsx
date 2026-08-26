@@ -1,4 +1,3 @@
-import { formatDuration } from "../../lib/format";
 import { useVoxState } from "../../lib/hooks";
 import { vox } from "../../lib/tauri";
 import { CountdownRing } from "./CountdownRing";
@@ -73,8 +72,8 @@ export function Pill() {
 }
 
 function formatRecordingTime(milliseconds: number): string {
-  const formatted = formatDuration(milliseconds);
-  return formatted.endsWith("s") ? `0:${formatted.slice(0, -1).padStart(2, "0")}` : formatted;
+  const seconds = Math.floor(Math.max(0, milliseconds) / 1_000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 function CheckIcon() { return <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="m3 7.2 2.5 2.4L11 4.3" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
